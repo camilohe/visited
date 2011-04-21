@@ -1,13 +1,13 @@
-Debug/visited.o: S:/Projects/CodeLite/visited/visited.c \
- S:/Projects/CodeLite/visited/aht.h \
- S:/Projects/CodeLite/visited/antigetopt.h \
- S:/Projects/CodeLite/visited/sleep.h \
- S:/Projects/CodeLite/visited/blacklist.h
+Debug/visited.o: D:/Projects/CodeLite/visited/visited.c \
+ D:/Projects/CodeLite/visited/aht.h \
+ D:/Projects/CodeLite/visited/antigetopt.h \
+ D:/Projects/CodeLite/visited/sleep.h \
+ D:/Projects/CodeLite/visited/blacklist.h
 
-S:/Projects/CodeLite/visited/aht.h:
+D:/Projects/CodeLite/visited/aht.h:
 
-S:/Projects/CodeLite/visited/antigetopt.h:
+D:/Projects/CodeLite/visited/antigetopt.h:
 
-S:/Projects/CodeLite/visited/sleep.h:
+D:/Projects/CodeLite/visited/sleep.h:
 
-S:/Projects/CodeLite/visited/blacklist.h:
+D:/Projects/CodeLite/visited/blacklist.h:

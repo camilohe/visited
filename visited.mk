@@ -7,12 +7,12 @@ ProjectName            :=visited
 ConfigurationName      :=Debug
 IntermediateDirectory  :=./Debug
 OutDir                 := $(IntermediateDirectory)
-WorkspacePath          := "S:\Projects\CodeLite\visited"
-ProjectPath            := "S:\Projects\CodeLite\visited"
+WorkspacePath          := "D:\Projects\CodeLite\visited"
+ProjectPath            := "D:\Projects\CodeLite\visited"
 CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
-User                   :=administrator
+User                   :=installer
 Date                   :=04/21/11
 CodeLitePath           :="C:\Programs\CodeLite"
 LinkerName             :=gcc
@@ -35,7 +35,7 @@ Preprocessors          :=
 ObjectSwitch           :=-o 
 ArchiveOutputSwitch    := 
 PreprocessOnlySwitch   :=-E 
-ObjectsFileList        :="S:\Projects\CodeLite\visited\visited.txt"
+ObjectsFileList        :="D:\Projects\CodeLite\visited\visited.txt"
 MakeDirCommand         :=makedir
 CmpOptions             := -g $(Preprocessors)
 C_CmpOptions           := -g $(Preprocessors)
@@ -75,36 +75,36 @@ PreBuild:
 ## Objects
 ##
 $(IntermediateDirectory)/aht$(ObjectSuffix): aht.c $(IntermediateDirectory)/aht$(DependSuffix)
-	$(C_CompilerName) $(SourceSwitch) "S:/Projects/CodeLite/visited/aht.c" $(C_CmpOptions) $(ObjectSwitch)$(IntermediateDirectory)/aht$(ObjectSuffix) $(IncludePath)
+	$(C_CompilerName) $(SourceSwitch) "D:/Projects/CodeLite/visited/aht.c" $(C_CmpOptions) $(ObjectSwitch)$(IntermediateDirectory)/aht$(ObjectSuffix) $(IncludePath)
 $(IntermediateDirectory)/aht$(DependSuffix): aht.c
-	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/aht$(ObjectSuffix) -MF$(IntermediateDirectory)/aht$(DependSuffix) -MM "S:/Projects/CodeLite/visited/aht.c"
+	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/aht$(ObjectSuffix) -MF$(IntermediateDirectory)/aht$(DependSuffix) -MM "D:/Projects/CodeLite/visited/aht.c"
 
 $(IntermediateDirectory)/aht$(PreprocessSuffix): aht.c
-	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/aht$(PreprocessSuffix) "S:/Projects/CodeLite/visited/aht.c"
+	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/aht$(PreprocessSuffix) "D:/Projects/CodeLite/visited/aht.c"
 
 $(IntermediateDirectory)/antigetopt$(ObjectSuffix): antigetopt.c $(IntermediateDirectory)/antigetopt$(DependSuffix)
-	$(C_CompilerName) $(SourceSwitch) "S:/Projects/CodeLite/visited/antigetopt.c" $(C_CmpOptions) $(ObjectSwitch)$(IntermediateDirectory)/antigetopt$(ObjectSuffix) $(IncludePath)
+	$(C_CompilerName) $(SourceSwitch) "D:/Projects/CodeLite/visited/antigetopt.c" $(C_CmpOptions) $(ObjectSwitch)$(IntermediateDirectory)/antigetopt$(ObjectSuffix) $(IncludePath)
 $(IntermediateDirectory)/antigetopt$(DependSuffix): antigetopt.c
-	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/antigetopt$(ObjectSuffix) -MF$(IntermediateDirectory)/antigetopt$(DependSuffix) -MM "S:/Projects/CodeLite/visited/antigetopt.c"
+	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/antigetopt$(ObjectSuffix) -MF$(IntermediateDirectory)/antigetopt$(DependSuffix) -MM "D:/Projects/CodeLite/visited/antigetopt.c"
 
 $(IntermediateDirectory)/antigetopt$(PreprocessSuffix): antigetopt.c
-	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/antigetopt$(PreprocessSuffix) "S:/Projects/CodeLite/visited/antigetopt.c"
+	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/antigetopt$(PreprocessSuffix) "D:/Projects/CodeLite/visited/antigetopt.c"
 
 $(IntermediateDirectory)/tail$(ObjectSuffix): tail.c $(IntermediateDirectory)/tail$(DependSuffix)
-	$(C_CompilerName) $(SourceSwitch) "S:/Projects/CodeLite/visited/tail.c" $(C_CmpOptions) $(ObjectSwitch)$(IntermediateDirectory)/tail$(ObjectSuffix) $(IncludePath)
+	$(C_CompilerName) $(SourceSwitch) "D:/Projects/CodeLite/visited/tail.c" $(C_CmpOptions) $(ObjectSwitch)$(IntermediateDirectory)/tail$(ObjectSuffix) $(IncludePath)
 $(IntermediateDirectory)/tail$(DependSuffix): tail.c
-	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/tail$(ObjectSuffix) -MF$(IntermediateDirectory)/tail$(DependSuffix) -MM "S:/Projects/CodeLite/visited/tail.c"
+	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/tail$(ObjectSuffix) -MF$(IntermediateDirectory)/tail$(DependSuffix) -MM "D:/Projects/CodeLite/visited/tail.c"
 
 $(IntermediateDirectory)/tail$(PreprocessSuffix): tail.c
-	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/tail$(PreprocessSuffix) "S:/Projects/CodeLite/visited/tail.c"
+	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/tail$(PreprocessSuffix) "D:/Projects/CodeLite/visited/tail.c"
 
 $(IntermediateDirectory)/visited$(ObjectSuffix): visited.c $(IntermediateDirectory)/visited$(DependSuffix)
-	$(C_CompilerName) $(SourceSwitch) "S:/Projects/CodeLite/visited/visited.c" $(C_CmpOptions) $(ObjectSwitch)$(IntermediateDirectory)/visited$(ObjectSuffix) $(IncludePath)
+	$(C_CompilerName) $(SourceSwitch) "D:/Projects/CodeLite/visited/visited.c" $(C_CmpOptions) $(ObjectSwitch)$(IntermediateDirectory)/visited$(ObjectSuffix) $(IncludePath)
 $(IntermediateDirectory)/visited$(DependSuffix): visited.c
-	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/visited$(ObjectSuffix) -MF$(IntermediateDirectory)/visited$(DependSuffix) -MM "S:/Projects/CodeLite/visited/visited.c"
+	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/visited$(ObjectSuffix) -MF$(IntermediateDirectory)/visited$(DependSuffix) -MM "D:/Projects/CodeLite/visited/visited.c"
 
 $(IntermediateDirectory)/visited$(PreprocessSuffix): visited.c
-	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/visited$(PreprocessSuffix) "S:/Projects/CodeLite/visited/visited.c"
+	@$(C_CompilerName) $(C_CmpOptions) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/visited$(PreprocessSuffix) "D:/Projects/CodeLite/visited/visited.c"
 
 
 -include $(IntermediateDirectory)/*$(DependSuffix)

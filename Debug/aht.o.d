@@ -1,4 +1,4 @@
-Debug/aht.o: S:/Projects/CodeLite/visited/aht.c \
- S:/Projects/CodeLite/visited/aht.h
+Debug/aht.o: D:/Projects/CodeLite/visited/aht.c \
+ D:/Projects/CodeLite/visited/aht.h
 
-S:/Projects/CodeLite/visited/aht.h:
+D:/Projects/CodeLite/visited/aht.h:

@@ -130,7 +130,6 @@ int Config_max_tld = 50;
 int Config_process_codes = 0;
 int Config_process_weekdayhour_map = 0;
 int Config_process_monthday_map = 0;
-int Config_process_requests_age = 0;
 int Config_process_tld = 0;
 int Config_process_error404 = 0;
 int Config_process_pageviews = 0;
@@ -803,6 +802,7 @@ struct vih *vi_new(void) {
 	vi_ht_init(&vih->date);
 	vi_ht_init(&vih->month);
 	vi_ht_init(&vih->visited);
+	vi_ht_init(&vih->requests);
 	return vih;
 }
 
@@ -1202,6 +1202,7 @@ int vi_process_users_per_day(struct vih *vih, char *host, char *user, char *date
  * Return non-zero on out of memory. */
 int vi_process_requests(struct vih *vih, char *req, time_t age) {
 	int res;
+	return 0;
 
 	/* Check the url against the blacklist if needed
 	 * this can be very slow... */
@@ -2498,7 +2499,6 @@ void vi_print_report_links(FILE *fp) {
 		"Requested pages", NULL,
 		"Requested images and CSS", NULL,
 		"Referers", NULL,
-		"Referers by first time", &Config_process_requests_age,
 		"HTTP codes", &Config_process_codes,
 		"404 Errors", &Config_process_error404,
 		"Domains", &Config_process_tld,
@@ -2857,7 +2857,6 @@ int main(int argc, char **argv) {
 			Config_process_codes = 1;
 			Config_process_weekdayhour_map = 1;
 			Config_process_monthday_map = 1;
-			Config_process_requests_age = 1;
 			Config_process_tld = 1;
 			Config_process_error404 = 1;
 			Config_process_pageviews = 1;
@@ -2902,9 +2901,6 @@ int main(int argc, char **argv) {
 			break;
 		case OPT_MONTHDAY_MAP:
 			Config_process_monthday_map = 1;
-			break;
-		case OPT_REFERERSAGE:
-			Config_process_requests_age = 1;
 			break;
 		case OPT_STREAM:
 			Config_stream_mode = 1;

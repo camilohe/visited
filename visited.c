@@ -59,12 +59,12 @@ struct vih {
 	struct hashtable error404;
 	struct hashtable pageviews;
 	struct hashtable pageviews_grouped;
-	struct hashtable requests; /* referers */
 	struct hashtable codes; /* agents */
 	struct hashtable date;
 	struct hashtable month;
-	struct hashtable visited; /* googlevisits */
 	struct hashtable tld;
+	struct hashtable requests; /* referers */
+	struct hashtable visited; /* referers */
 	char *error;
 };
 
@@ -761,10 +761,11 @@ void vi_reset_hashtables(struct vih *vih) {
 	ht_destroy(&vih->pageviews);
 	ht_destroy(&vih->pageviews_grouped);
 	ht_destroy(&vih->codes);
-	ht_destroy(&vih->visited);
 	ht_destroy(&vih->tld);
 	ht_destroy(&vih->date);
 	ht_destroy(&vih->month);
+	ht_destroy(&vih->requests);
+	ht_destroy(&vih->visited);
 }
 
 /* Reset handler informations to support --reset option in
@@ -801,8 +802,8 @@ struct vih *vi_new(void) {
 	vi_ht_init(&vih->tld);
 	vi_ht_init(&vih->date);
 	vi_ht_init(&vih->month);
-	vi_ht_init(&vih->visited);
 	vi_ht_init(&vih->requests);
+	vi_ht_init(&vih->visited);
 	return vih;
 }
 
@@ -1198,6 +1199,69 @@ int vi_process_users_per_day(struct vih *vih, char *host, char *user, char *date
 	return 0;
 }
 
+/* Process unique users populating the relative hash table.
+ * Return non-zero on out of memory. This is also used to populate
+ * the hashtable used for the "pageviews per user" statistics.
+ *
+ * Note that the last argument 'seen', is an integer passed by reference
+ * that is set to '1' if this is not a new visit (otherwise it's set to zero) */
+int vi_process_users(struct vih *vih, char *host, char *user, char *date, char *req, long size, int *seen) {
+	char visday[VI_LINE_MAX], *p, *month = "fixme if I'm here!";
+	char buf[64];
+	int res, host_len, user_len, date_len, hash_len;
+	unsigned long h;
+
+	/* Build an unique identifier for this visit
+	 * adding together host, date and hash(user) */
+	host_len = strlen(host);
+	user_len = strlen(user);
+	date_len = strlen(date);
+	h = djb_hash((unsigned char*) user, user_len);
+	sprintf(buf, "%lu", h);
+	hash_len = strlen(buf);
+	if (host_len+user_len+date_len+4 > VI_LINE_MAX)
+		return 0;
+	p = visday;
+	memcpy(p, host, host_len);
+	p += host_len;
+	*p++ = '|';
+	memcpy(p, date, date_len);
+	p += date_len;
+	*p++ = '|';
+	memcpy(p, buf, hash_len);
+	p += hash_len;
+	*p = '\0';
+	/* fprintf(stderr, "%s\n", visday); */
+
+	if (Config_process_monthly_users) {
+		/* Skip the day number. */
+		month = strchr(date, '/');
+		if (!month) return 0; /* should never happen */
+		month++;
+	}
+
+	/* Populate the 'pageviews per user' hash table */
+	if (Config_process_pageviews && vi_is_pageview(req)) {
+		res = vi_counter_incr(&vih->pageviews, user);
+		if (res == 0) return 1; /* out of memory */
+	}
+	/* Mark the visit in the users hashtable */
+	res = vi_counter_incr(&vih->users, user);
+	if (res == 0) return 1; /* out of memory */
+
+	/* Mark the visit in the hosts hashtable */
+	res = vi_counter_incr(&vih->hosts, host);
+	if (res == 0) return 1; /* out of memory */
+
+	res = vi_counter_incr(&vih->date, date);
+	if (res == 0) return 1;
+	if (Config_process_monthly_users) {
+		res = vi_counter_incr(&vih->month, month);
+		if (res == 0) return 1;
+	}
+	return 0;
+}
+
 /* Process requests populating the relative hash tables.
  * Return non-zero on out of memory. */
 int vi_process_requests(struct vih *vih, char *req, time_t age) {
@@ -1209,11 +1273,9 @@ int vi_process_requests(struct vih *vih, char *req, time_t age) {
 	if (Config_filter_spam && vi_is_blacklisted_url(vih, req))
 		return 0;
 	/* Don't count internal referer (specified by the user
-	 * using --prefix options), nor google referers. */
+	 * using --prefix options) */
 	if (vi_is_internal_link(req))
 		return !vi_counter_incr(&vih->requests, "Internal Link");
-	if (vi_is_google_link(req))
-		return !vi_counter_incr(&vih->requests, "Google Search Engine");
 	res = vi_counter_incr(&vih->requests, req);
 	if (res == 0) return 1;
 	return 0;
@@ -1407,7 +1469,7 @@ int vi_process_tld(struct vih *vih, char *hostname) {
 	return 0;
 }
 
-/* Match a log line against --grep and --exclude patters to check
+/* Match a log line against --grep and --exclude patterns to check
  * if the line must be processed or not. */
 int vi_match_line(char *line) {
 	int i;
@@ -1469,15 +1531,17 @@ int vi_process_line(struct vih *vih, char *l) {
 		 * or not. Some report is generated only against the first
 		 * line of every visitor, other reports are generated
 		 * for every single log line. */
-		/***TODO: rewrite - we have user and size but no user nor ref***/
+		/***TODO: rewrite - we have user and size but no user nor ref
 		if (vi_process_users_per_day(vih, ll.host, ll.user,
+		                             ll.date, ll.req, ll.size, &seen))
+			goto oom;
+		***/
+		if (vi_process_users(vih, ll.host, ll.user,
 		                             ll.date, ll.req, ll.size, &seen))
 			goto oom;
 		/* The following are processed for every log line */
 		if (vi_process_page_request(vih, ll.req)) goto oom;
 
-		/* The following are processed only for new visits */
-		if (seen) return 0;
 		vi_process_date_and_hour(vih, (ll.tm.tm_wday+6)%7,
 		                         ll.tm.tm_hour);
 		vi_process_month_and_day(vih, ll.tm.tm_mon, ll.tm.tm_mday-1);
@@ -1488,6 +1552,8 @@ int vi_process_line(struct vih *vih, char *l) {
 		        vi_process_codes(vih, ll.code)) goto oom;
 		if (Config_process_tld &&
 		        vi_process_tld(vih, ll.host)) goto oom;
+		/* The following are processed only for new visits */
+		if (seen) return 0;
 		return 0;
 	} else {
 		vih->invalid++;

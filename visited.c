@@ -34,9 +34,9 @@
 #define VI_GREP_PATTERNS_MAX 1024
 /* Abbreviation length for HTML outputs */
 #define VI_HTML_ABBR_LEN 100
-/* Version as a string */
-#define VI_DATE_MAX 64
 /* Max length of a log entry date */
+#define VI_DATE_MAX 64
+/* Version as a string */
 #define VI_VERSION_STR "0.711"
 
 /*------------------------------- data structures ----------------------------*/
@@ -48,23 +48,38 @@ struct vih {
 	int processed;
 	int invalid;
 	int blacklisted;
-	int hour[24];
-	int weekday[7];
-	int weekdayhour[7][24]; /* hour and weekday combined data */
-	int monthday[12][31]; /* month and day combined data */
-	struct hashtable users; /* visitors */
-	struct hashtable hosts; /* googlevisitors */
-	struct hashtable pages;
-	struct hashtable images;
+	
+	int hour_hits[24];
+	int hour_size[24];
+	int weekday_hits[7];
+	int weekday_size[7];
+	int weekdayhour_hits[7][24]; /* hour and weekday combined data */
+	int weekdayhour_size[7][24]; /* hour and weekday combined data */
+	int monthday_hits[12][31]; /* month and day combined data */
+	int monthday_size[12][31]; /* month and day combined data */
+
+	struct hashtable pages_hits;
+	struct hashtable pages_size;
+	struct hashtable sites_hits;
+	struct hashtable sites_size;
+
+	struct hashtable users_hits;
+	struct hashtable users_size;
+	struct hashtable hosts_hits;
+	struct hashtable hosts_size;
+	struct hashtable codes_hits;
+	struct hashtable codes_size;
+	struct hashtable verbs_hits;
+	struct hashtable verbs_size;
+
+	struct hashtable types_hits;
+	struct hashtable types_size;
+
 	struct hashtable error404;
 	struct hashtable pageviews;
-	struct hashtable pageviews_grouped;
-	struct hashtable codes; /* agents */
+
 	struct hashtable date;
 	struct hashtable month;
-	struct hashtable tld;
-	struct hashtable requests; /* referers */
-	struct hashtable visited; /* referers */
 	char *error;
 };
 
@@ -126,11 +141,17 @@ int Config_max_pages = 50;
 int Config_max_images = 50;
 int Config_max_error404 = 50;
 int Config_max_codes = 50;
-int Config_max_tld = 50;
+int Config_max_sites = 50;
+int Config_max_types = 50;
+int Config_max_hosts = 50;
 int Config_process_codes = 0;
 int Config_process_weekdayhour_map = 0;
 int Config_process_monthday_map = 0;
-int Config_process_tld = 0;
+int Config_process_users = 0;
+int Config_process_verbs = 0;
+int Config_process_sites = 0;
+int Config_process_types = 0;
+int Config_process_hosts = 0;
 int Config_process_error404 = 0;
 int Config_process_pageviews = 0;
 int Config_process_monthly_users = 1;
@@ -740,32 +761,41 @@ void vi_reset_combined_maps(struct vih *vih) {
 	int i, j;
 
 	for (i = 0; i < 24; i++) {
-		vih->hour[i] = 0;
-		for (j = 0; j < 7; j++)
-			vih->weekdayhour[j][i] = 0;
+		vih->hour_hits[i] = 0;
+		vih->hour_size[i] = 0;
+		for (j = 0; j < 7; j++) {
+			vih->weekdayhour_hits[j][i] = 0;
+			vih->weekdayhour_size[j][i] = 0;
+		}
 	}
-	for (i = 0; i < 7; i++) vih->weekday[i] = 0;
+	for (i = 0; i < 7; i++) vih->weekday_hits[i] = 0;
+	for (i = 0; i < 7; i++) vih->weekday_size[i] = 0;
 	for (i = 0; i < 31; i++)
-		for (j = 0; j < 12; j++)
-			vih->monthday[j][i] = 0;
+		for (j = 0; j < 12; j++) {
+			vih->monthday_hits[j][i] = 0;
+			vih->monthday_size[j][i] = 0;
+		}
 }
 
 /* Reset the hashtables from the handler, that are left
  * in a reusable state (but all empty). */
 void vi_reset_hashtables(struct vih *vih) {
-	ht_destroy(&vih->users);
-	ht_destroy(&vih->hosts);
-	ht_destroy(&vih->pages);
-	ht_destroy(&vih->images);
+	ht_destroy(&vih->users_hits);
+	ht_destroy(&vih->users_size);
+	ht_destroy(&vih->hosts_hits);
+	ht_destroy(&vih->hosts_size);
+	ht_destroy(&vih->pages_hits);
+	ht_destroy(&vih->pages_size);
+	ht_destroy(&vih->sites_hits);
+	ht_destroy(&vih->sites_size);
+	ht_destroy(&vih->codes_hits);
+	ht_destroy(&vih->codes_size);
+	ht_destroy(&vih->verbs_hits);
+	ht_destroy(&vih->verbs_size);
 	ht_destroy(&vih->error404);
 	ht_destroy(&vih->pageviews);
-	ht_destroy(&vih->pageviews_grouped);
-	ht_destroy(&vih->codes);
-	ht_destroy(&vih->tld);
 	ht_destroy(&vih->date);
 	ht_destroy(&vih->month);
-	ht_destroy(&vih->requests);
-	ht_destroy(&vih->visited);
 }
 
 /* Reset handler informations to support --reset option in
@@ -791,19 +821,22 @@ struct vih *vi_new(void) {
 	vih->blacklisted = 0;
 	vi_reset_combined_maps(vih);
 	vih->error = NULL;
-	vi_ht_init(&vih->users);
-	vi_ht_init(&vih->hosts);
-	vi_ht_init(&vih->pages);
-	vi_ht_init(&vih->images);
+	vi_ht_init(&vih->users_hits);
+	vi_ht_init(&vih->users_size);
+	vi_ht_init(&vih->hosts_hits);
+	vi_ht_init(&vih->hosts_size);
+	vi_ht_init(&vih->pages_hits);
+	vi_ht_init(&vih->pages_size);
+	vi_ht_init(&vih->sites_hits);
+	vi_ht_init(&vih->sites_size);
+	vi_ht_init(&vih->codes_hits);
+	vi_ht_init(&vih->codes_size);
+	vi_ht_init(&vih->verbs_hits);
+	vi_ht_init(&vih->verbs_size);
 	vi_ht_init(&vih->error404);
 	vi_ht_init(&vih->pageviews);
-	vi_ht_init(&vih->pageviews_grouped);
-	vi_ht_init(&vih->codes);
-	vi_ht_init(&vih->tld);
 	vi_ht_init(&vih->date);
 	vi_ht_init(&vih->month);
-	vi_ht_init(&vih->requests);
-	vi_ht_init(&vih->visited);
 	return vih;
 }
 
@@ -1054,10 +1087,12 @@ int vi_parse_line(struct logline *ll, char *l) {
 	if ((req = strstr(l, "\"GET")) != NULL ||
 	        (req = strstr(l, "\"POST")) != NULL ||
 	        (req = strstr(l, "\"CONNECT")) != NULL ||
+	        (req = strstr(l, "\"OPTIONS")) != NULL ||
 	        (req = strstr(l, "\"HEAD")) != NULL ||
 	        (req = strstr(l, "\"get")) != NULL ||
 	        (req = strstr(l, "\"post")) != NULL ||
 	        (req = strstr(l, "\"connect")) != NULL ||
+	        (req = strstr(l, "\"options")) != NULL ||
 	        (req = strstr(l, "\"head")) != NULL) {
 		req++;
 	} else {
@@ -1120,20 +1155,24 @@ int vi_parse_line(struct logline *ll, char *l) {
 }
 
 /* process the weekday and hour information */
-void vi_process_date_and_hour(struct vih *vih, int weekday, int hour) {
+void vi_process_date_and_hour(struct vih *vih, int weekday, int hour, int size) {
 	/* Note, the following sanity check is useless in theory. */
 	if (weekday < 0 || weekday > 6 || hour < 0 || hour > 23) return;
-	vih->weekday[weekday]++;
-	vih->hour[hour]++;
+	vih->weekday_hits[weekday]++;
+	vih->weekday_size[weekday] += size;
+	vih->hour_hits[hour]++;
+	vih->hour_size[hour] += size;
 	/* store the combined info. We always compute this information
 	 * even if the report is disabled because it's cheap. */
-	vih->weekdayhour[weekday][hour]++;
+	vih->weekdayhour_hits[weekday][hour]++;
+	vih->weekdayhour_size[weekday][hour] += size;
 }
 
 /* process the month and day information */
-void vi_process_month_and_day(struct vih *vih, int month, int day) {
+void vi_process_month_and_day(struct vih *vih, int month, int day, int size) {
 	if (month < 0 || month > 11 || day < 0 || day > 30) return;
-	vih->monthday[month][day]++;
+	vih->monthday_hits[month][day]++;
+	vih->monthday_size[month][day] += size;
 }
 
 /* Process unique users populating the relative hash table.
@@ -1183,7 +1222,7 @@ int vi_process_users_per_day(struct vih *vih, char *host, char *user, char *date
 		if (res == 0) return 1; /* out of memory */
 	}
 	/* Mark the visit in the non-google-specific hashtable */
-	res = vi_counter_incr(&vih->users, visday);
+//	res = vi_counter_incr(&vih->users, visday);
 	if (res == 0) return 1; /* out of memory */
 	if (res > 1) {
 		if (seen) *seen = 1; /* visit alredy seen. */
@@ -1199,13 +1238,13 @@ int vi_process_users_per_day(struct vih *vih, char *host, char *user, char *date
 	return 0;
 }
 
-/* Process unique users populating the relative hash table.
+/* Process unique visitors populating the relative hash table.
  * Return non-zero on out of memory. This is also used to populate
  * the hashtable used for the "pageviews per user" statistics.
  *
  * Note that the last argument 'seen', is an integer passed by reference
  * that is set to '1' if this is not a new visit (otherwise it's set to zero) */
-int vi_process_users(struct vih *vih, char *host, char *user, char *date, char *req, long size, int *seen) {
+int vi_process_visitors(struct vih *vih, char *host, char *user, char *date, char *req, long size, int *seen) {
 	char visday[VI_LINE_MAX], *p, *month = "fixme if I'm here!";
 	char buf[64];
 	int res, host_len, user_len, date_len, hash_len;
@@ -1246,11 +1285,11 @@ int vi_process_users(struct vih *vih, char *host, char *user, char *date, char *
 		if (res == 0) return 1; /* out of memory */
 	}
 	/* Mark the visit in the users hashtable */
-	res = vi_counter_incr(&vih->users, user);
+//	res = vi_counter_incr(&vih->users, user);
 	if (res == 0) return 1; /* out of memory */
 
 	/* Mark the visit in the hosts hashtable */
-	res = vi_counter_incr(&vih->hosts, host);
+//	res = vi_counter_incr(&vih->hosts, host);
 	if (res == 0) return 1; /* out of memory */
 
 	res = vi_counter_incr(&vih->date, date);
@@ -1262,21 +1301,21 @@ int vi_process_users(struct vih *vih, char *host, char *user, char *date, char *
 	return 0;
 }
 
-/* Process requests populating the relative hash tables.
+/* Process requests populating the pages and sites hash tables.
  * Return non-zero on out of memory. */
-int vi_process_requests(struct vih *vih, char *req, time_t age) {
+int vi_process_requests(struct vih *vih, char *req, int size) {
 	int res;
-	return 0;
 
-	/* Check the url against the blacklist if needed
-	 * this can be very slow... */
-	if (Config_filter_spam && vi_is_blacklisted_url(vih, req))
-		return 0;
 	/* Don't count internal referer (specified by the user
 	 * using --prefix options) */
-	if (vi_is_internal_link(req))
-		return !vi_counter_incr(&vih->requests, "Internal Link");
-	res = vi_counter_incr(&vih->requests, req);
+	if (vi_is_internal_link(req)) {
+		res = vi_traffic_incr(&vih->pages_size, "Internal Link", size);
+		if (res == 0) return 1;
+		return !vi_counter_incr(&vih->pages_hits, "Internal Link");
+	}
+	res = vi_traffic_incr(&vih->pages_size, req, size);
+	if (res == 0) return 1;
+	res = vi_counter_incr(&vih->pages_hits, req);
 	if (res == 0) return 1;
 	return 0;
 }
@@ -1289,12 +1328,12 @@ int vi_process_page_request(struct vih *vih, char *url) {
 	char urldecoded[VI_LINE_MAX];
 
 	vi_urldecode(urldecoded, url, VI_LINE_MAX);
-	if (vi_is_image(url))
-		res = vi_counter_incr(&vih->images, urldecoded);
-	else
-		res = vi_counter_incr(&vih->pages, urldecoded);
+//	if (vi_is_image(url))
+//		res = vi_counter_incr(&vih->images, urldecoded);
+//	else
+//		res = vi_counter_incr(&vih->pages, urldecoded);
 	if (res == 0) return 1;
-	res = vi_counter_incr(&vih->visited, urldecoded);
+//	res = vi_counter_incr(&vih->visited, urldecoded);
 	if (res == 0) return 1;
 	return 0;
 }
@@ -1314,10 +1353,48 @@ int vi_process_error404(struct vih *vih, char *l, char *url, int *is404) {
 
 /* Process codes populating the relative hash table.
  * Return non-zero on out of memory. */
-int vi_process_codes(struct vih *vih, char *code) {
+int vi_process_codes(struct vih *vih, char *code, int size) {
 	int res;
 
-	res = vi_counter_incr(&vih->codes, code);
+	res = vi_traffic_incr(&vih->codes_hits, code, size);
+	if (res == 0) return 1;
+	res = vi_counter_incr(&vih->codes_hits, code);
+	if (res == 0) return 1;
+	return 0;
+}
+
+/* Process verbs populating the relative hash table.
+ * Return non-zero on out of memory. */
+int vi_process_verbs(struct vih *vih, char *verb, int size) {
+	int res;
+
+	res = vi_traffic_incr(&vih->verbs_hits, verb, size);
+	if (res == 0) return 1;
+	res = vi_counter_incr(&vih->verbs_hits, verb);
+	if (res == 0) return 1;
+	return 0;
+}
+
+/* Process users populating the relative hash table.
+ * Return non-zero on out of memory. */
+int vi_process_users(struct vih *vih, char *user, int size) {
+	int res;
+
+	res = vi_traffic_incr(&vih->users_hits, user, size);
+	if (res == 0) return 1;
+	res = vi_counter_incr(&vih->users_hits, user);
+	if (res == 0) return 1;
+	return 0;
+}
+
+/* Process hosts populating the relative hash table.
+ * Return non-zero on out of memory. */
+int vi_process_hosts(struct vih *vih, char *host, int size) {
+	int res;
+
+	res = vi_traffic_incr(&vih->hosts_hits, host, size);
+	if (res == 0) return 1;
+	res = vi_counter_incr(&vih->hosts_hits, host);
 	if (res == 0) return 1;
 	return 0;
 }
@@ -1464,7 +1541,7 @@ int vi_process_tld(struct vih *vih, char *hostname) {
 		tld = hostname;
 	}
 
-	res = vi_counter_incr(&vih->tld, tld);
+//	res = vi_counter_incr(&vih->tld, tld);
 	if (res == 0) return 1;
 	return 0;
 }
@@ -1536,22 +1613,26 @@ int vi_process_line(struct vih *vih, char *l) {
 		                             ll.date, ll.req, ll.size, &seen))
 			goto oom;
 		***/
-		if (vi_process_users(vih, ll.host, ll.user,
+		if (vi_process_visitors(vih, ll.host, ll.user,
 		                             ll.date, ll.req, ll.size, &seen))
 			goto oom;
 		/* The following are processed for every log line */
 		if (vi_process_page_request(vih, ll.req)) goto oom;
 
 		vi_process_date_and_hour(vih, (ll.tm.tm_wday+6)%7,
-		                         ll.tm.tm_hour);
-		vi_process_month_and_day(vih, ll.tm.tm_mon, ll.tm.tm_mday-1);
+		                         ll.tm.tm_hour, ll.size);
+		vi_process_month_and_day(vih, ll.tm.tm_mon, ll.tm.tm_mday-1, ll.size);
 		/***TODO: rewrite or delete - we have user and size but no agent nor ref***/
-		if (vi_process_requests(vih, ll.req, ll.time)) goto oom;
-		/***TODO: rewrite or delete - we have user and size but no agent nor ref***/
+		if (vi_process_requests(vih, ll.req, ll.size)) goto oom;
+
+		if (Config_process_users &&
+		        vi_process_users(vih, ll.user, ll.size)) goto oom;
 		if (Config_process_codes &&
-		        vi_process_codes(vih, ll.code)) goto oom;
-		if (Config_process_tld &&
-		        vi_process_tld(vih, ll.host)) goto oom;
+		        vi_process_codes(vih, ll.code, ll.size)) goto oom;
+		if (Config_process_verbs &&
+		        vi_process_verbs(vih, ll.verb, ll.size)) goto oom;
+		if (Config_process_hosts &&
+		        vi_process_hosts(vih, ll.host, ll.size)) goto oom;
 		/* The following are processed only for new visits */
 		if (seen) return 0;
 		return 0;
@@ -1632,7 +1713,7 @@ int vi_postprocess_pageviews(struct vih *vih) {
 		else if (pv >= 21 && pv <= 30) key = "21-30";
 		else key = "> 30";
 
-		res = vi_counter_incr(&vih->pageviews_grouped, key);
+//		res = vi_counter_incr(&vih->pageviews_grouped, key);
 		if (res == 0) {
 			free(table);
 			return 1; /* out of memory */
@@ -2152,32 +2233,56 @@ void vi_print_statistics(struct vih *vih) {
 }
 
 void vi_print_hours_report(FILE *fp, struct vih *vih) {
-	int i, max = 0, tot = 0;
+	int i, max_hits = 0, tot_hits = 0;
+	long max_size = 0, tot_size = 0;
 	for (i = 0; i < 24; i++) {
-		if (vih->hour[i] > max)
-			max = vih->hour[i];
-		tot += vih->hour[i];
+		if (vih->hour_hits[i] > max_hits)
+			max_hits = vih->hour_hits[i];
+		tot_hits += vih->hour_hits[i];
 	}
 	Output->print_title(fp, "Hours distribution");
 	Output->print_subtitle(fp, "Percentage of hits in every hour of the day");
 	for (i = 0; i < 24; i++) {
 		char buf[8];
 		sprintf(buf, "%02d", i);
-		Output->print_numkeybar_entry(fp, buf, max, tot, vih->hour[i]);
+		Output->print_numkeybar_entry(fp, buf, max_hits, tot_hits, vih->hour_hits[i]);
+	}
+	for (i = 0; i < 24; i++) {
+		if (vih->hour_size[i] > max_size)
+			max_size = vih->hour_size[i];
+		tot_size += vih->hour_size[i];
+	}
+	Output->print_title(fp, "Hours distribution");
+	Output->print_subtitle(fp, "Percentage of size in every hour of the day");
+	for (i = 0; i < 24; i++) {
+		char buf[8];
+		sprintf(buf, "%02d", i);
+		Output->print_numkeybar_entry(fp, buf, max_size, tot_size, vih->hour_size[i]);
 	}
 }
 
 void vi_print_weekdays_report(FILE *fp, struct vih *vih) {
-	int i, max = 0, tot = 0;
+	int i, max_hits = 0, tot_hits = 0;
+	long max_size = 0, tot_size = 0;
 	for (i = 0; i < 7; i++) {
-		if (vih->weekday[i] > max)
-			max = vih->weekday[i];
-		tot += vih->weekday[i];
+		if (vih->weekday_hits[i] > max_hits)
+			max_hits = vih->weekday_hits[i];
+		tot_hits += vih->weekday_hits[i];
 	}
 	Output->print_title(fp, "Weekdays distribution");
 	Output->print_subtitle(fp, "Percentage of hits in every day of the week");
 	for (i = 0; i < 7; i++) {
-		Output->print_numkeybar_entry(fp, vi_wdname[i], max, tot, vih->weekday[i]);
+		Output->print_numkeybar_entry(fp, vi_wdname[i], max_hits, tot_hits, vih->weekday_hits[i]);
+	}
+	for (i = 0; i < 7; i++) {
+		if (vih->weekday_size[i] > max_size)
+			max_size = vih->weekday_size[i];
+		tot_size += vih->weekday_size[i];
+	}
+	Output->print_title(fp, "Weekdays distribution");
+	Output->print_subtitle(fp, "Percentage of size in every day of the week");
+	for (i = 0; i < 7; i++) {
+		Output->print_numkeybar_entry(fp, vi_wdname[i], max_size, tot_size, vih->weekday_size[i]);
 	}
 }
 
@@ -2271,7 +2376,7 @@ void vi_print_visits_report(FILE *fp, struct vih *vih) {
 	Output->print_title(fp, "Unique visitors in each day");
 	Output->print_subtitle(fp, "Multiple hits with the same IP, user agent and access day, are considered a single visit");
 	Output->print_numkey_info(fp, "Number of unique visitors",
-	                          ht_used(&vih->users));
+	                          ht_used(&vih->users_hits));
 	Output->print_numkey_info(fp, "Different days in logfile",
 	                          ht_used(&vih->date));
 
@@ -2301,7 +2406,7 @@ void vi_print_visits_report(FILE *fp, struct vih *vih) {
 	Output->print_title(fp, "Unique visitors in each month");
 	Output->print_subtitle(fp, "Multiple hits with the same IP, user agent and access day, are considered a single visit");
 	Output->print_numkey_info(fp, "Number of unique visitors",
-	                          ht_used(&vih->users));
+	                          ht_used(&vih->users_hits));
 	Output->print_numkey_info(fp, "Different months in logfile",
 	                          ht_used(&vih->month));
 
@@ -2429,17 +2534,6 @@ void vi_print_keyphrases_report(FILE *fp, char *title, char *subtitle,
 	free(table);
 }
 
-void vi_print_requests_report(FILE *fp, struct vih *vih) {
-	vi_print_generic_keyval_report(
-	    fp,
-	    "Requests",
-	    "Requests ordered by visits (google excluded)",
-	    "Different Requests",
-	    Config_max_requests,
-	    &vih->requests,
-	    qsort_cmp_long_value);
-}
-
 void vi_print_pages_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyval_report(
 	    fp,
@@ -2447,7 +2541,15 @@ void vi_print_pages_report(FILE *fp, struct vih *vih) {
 	    "Page requests ordered by hits",
 	    "Different pages requested",
 	    Config_max_pages,
-	    &vih->pages,
+	    &vih->pages_hits,
+	    qsort_cmp_long_value);
+	vi_print_generic_keyval_report(
+	    fp,
+	    "Requested pages",
+	    "Page requests ordered by size",
+	    "Different pages requested",
+	    Config_max_pages,
+	    &vih->pages_size,
 	    qsort_cmp_long_value);
 }
 
@@ -2462,25 +2564,22 @@ void vi_print_error404_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 }
 
-void vi_print_pageviews_report(FILE *fp, struct vih *vih) {
-	vi_print_generic_keyvalbar_report(
-	    fp,
-	    "Pageviews per visit",
-	    "Number of pages requested per visit",
-	    "Only documents are counted (not images). Reported ranges:",
-	    100,
-	    &vih->pageviews_grouped,
-	    qsort_cmp_long_value);
-}
-
-void vi_print_images_report(FILE *fp, struct vih *vih) {
+void vi_print_types_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyval_report(
 	    fp,
-	    "Requested images and CSS",
-	    "Images and CSS requests ordered by hits",
-	    "Different images and CSS requested",
-	    Config_max_images,
-	    &vih->images,
+	    "Requested media types",
+	    "Requested media types ordered by hits",
+	    "Different media types requested",
+	    Config_max_types,
+	    &vih->types_hits,
+	    qsort_cmp_long_value);
+	vi_print_generic_keyval_report(
+	    fp,
+	    "Requested media types",
+	    "Requested media types ordered by size",
+	    "Different media types requested",
+	    Config_max_types,
+	    &vih->types_size,
 	    qsort_cmp_long_value);
 }
 
@@ -2488,21 +2587,75 @@ void vi_print_codes_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyval_report(
 	    fp,
 	    "HTTP codes",
-	    "HTTP codes ordered by visits",
+	    "HTTP codes ordered by hits",
 	    "Different HTTP codes",
 	    Config_max_codes,
-	    &vih->codes,
+	    &vih->codes_hits,
+	    qsort_cmp_long_value);
+	vi_print_generic_keyval_report(
+	    fp,
+	    "HTTP codes",
+	    "HTTP codes ordered by size",
+	    "Different HTTP codes",
+	    Config_max_codes,
+	    &vih->codes_size,
 	    qsort_cmp_long_value);
 }
 
-void vi_print_tld_report(FILE *fp, struct vih *vih) {
+void vi_print_sites_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Domains",
-	    "Domains sorted by visits",
-	    "Total number of Domains",
-	    Config_max_tld,
-	    &vih->tld,
+	    "Sites",
+	    "Domains sorted by hits",
+	    "Total number of sites",
+	    Config_max_sites,
+	    &vih->sites_hits,
+	    qsort_cmp_long_value);
+	vi_print_generic_keyvalbar_report(
+	    fp,
+	    "Sites",
+	    "Sites sorted by size",
+	    "Total size of sites",
+	    Config_max_sites,
+	    &vih->sites_size,
+	    qsort_cmp_long_value);
+}
+
+void vi_print_hosts_report(FILE *fp, struct vih *vih) {
+	vi_print_generic_keyvalbar_report(
+	    fp,
+	    "Hosts",
+	    "Hosts sorted by hits",
+	    "Total number of hosts",
+	    Config_max_hosts,
+	    &vih->hosts_hits,
+	    qsort_cmp_long_value);
+	vi_print_generic_keyvalbar_report(
+	    fp,
+	    "Hosts",
+	    "Hosts sorted by size",
+	    "Total size of hosts",
+	    Config_max_hosts,
+	    &vih->hosts_size,
+	    qsort_cmp_long_value);
+}
+
+void vi_print_verbs_report(FILE *fp, struct vih *vih) {
+	vi_print_generic_keyvalbar_report(
+	    fp,
+	    "HTTP Verbs",
+	    "Verbs sorted by hits",
+	    "Total number of verbs",
+	    100,
+	    &vih->verbs_hits,
+	    qsort_cmp_long_value);
+	vi_print_generic_keyvalbar_report(
+	    fp,
+	    "HTTP Verbs",
+	    "Verbss sorted by size",
+	    "Total size of verbs",
+	    100,
+	    &vih->verbs_size,
 	    qsort_cmp_long_value);
 }
 
@@ -2555,19 +2708,15 @@ void vi_print_information_report(FILE *fp, struct vih *vih) {
 
 void vi_print_report_links(FILE *fp) {
 	void *l[] = {
-		"Unique visitors in each day", NULL,
-		"Unique visitors in each month", &Config_process_monthly_users,
-		"Unique visitors from Google in each day", NULL,
-		"Unique visitors from Google in each month", &Config_process_monthly_users,
-		"Pageviews per visit", &Config_process_pageviews,
+		"Requested pages", NULL,
+		"Requested sites", &Config_process_sites,
 		"Weekday-Hour combined map", &Config_process_weekdayhour_map,
 		"Month-Day combined map", &Config_process_monthday_map,
-		"Requested pages", NULL,
-		"Requested images and CSS", NULL,
-		"Referers", NULL,
+		"Media types", &Config_process_types,
+		"Users", &Config_process_users,
 		"HTTP codes", &Config_process_codes,
+		"HTTP verbs", &Config_process_verbs,
 		"404 Errors", &Config_process_error404,
-		"Domains", &Config_process_tld,
 		"Weekday distribution", NULL,
 		"Hours distribution", NULL,
 	};
@@ -2595,10 +2744,32 @@ void vi_print_weekdayhour_map_report(FILE *fp, struct vih *vih) {
 	};
 	char **ylabel = vi_wdname;
 	int j, minj = 0, maxj = 0;
-	int *hw = (int*) vih->weekdayhour;
+	int *hw = (int*) vih->weekdayhour_hits;
 	char buf[VI_LINE_MAX];
 
-	/* Check idexes of minimum and maximum in the array. */
+	/* Check indexes of minimum and maximum in the array. */
+	for (j = 0; j < 24*7; j++) {
+		if (hw[j] > hw[maxj])
+			maxj = j;
+		if (hw[j] < hw[minj])
+			minj = j;
+	}
+
+	Output->print_title(fp, "Weekday-Hour combined map");
+	Output->print_subtitle(fp, "Brighter means higher level of hits");
+	snprintf(buf, VI_LINE_MAX, "Hour with max traffic starting at %s %s:00 with hits",
+	         ylabel[maxj/24], xlabel[maxj%24]);
+	Output->print_numkey_info(fp, buf, hw[maxj]);
+	snprintf(buf, VI_LINE_MAX, "Hour with min traffic starting at %s %s:00 with hits",
+	         ylabel[minj/24], xlabel[minj%24]);
+	Output->print_numkey_info(fp, buf, hw[minj]);
+	Output->print_hline(fp);
+	Output->print_bidimentional_map(fp, 24, 7, xlabel, ylabel, hw);
+	
+	/* do sizes now */
+	hw = (int*) vih->weekdayhour_hits;
+	
+	/* Check indexes of minimum and maximum in the array. */
 	for (j = 0; j < 24*7; j++) {
 		if (hw[j] > hw[maxj])
 			maxj = j;
@@ -2630,10 +2801,10 @@ void vi_print_monthday_map_report(FILE *fp, struct vih *vih) {
 		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 	};
 	int j, minj = 0, maxj = 0;
-	int *md = (int*) vih->monthday;
+	int *md = (int*) vih->monthday_hits;
 	char buf[VI_LINE_MAX];
 
-	/* Check idexes of minimum and maximum in the array. */
+	/* Check indexes of minimum and maximum in the array. */
 	for (j = 0; j < 12*31; j++) {
 		if (md[j] > md[maxj])
 			maxj = j;
@@ -2647,6 +2818,28 @@ void vi_print_monthday_map_report(FILE *fp, struct vih *vih) {
 	         ylabel[maxj/31], xlabel[maxj%31]);
 	Output->print_numkey_info(fp, buf, md[maxj]);
 	snprintf(buf, VI_LINE_MAX, "Day with min traffic is %s %s with hits",
+	         ylabel[minj/31], xlabel[minj%31]);
+	Output->print_numkey_info(fp, buf, md[minj]);
+	Output->print_hline(fp);
+	Output->print_bidimentional_map(fp, 31, 12, xlabel, ylabel, md);
+
+	/* do sizes now */
+	md = (int*) vih->monthday_size;
+	
+	/* Check indexes of minimum and maximum in the array. */
+	for (j = 0; j < 12*31; j++) {
+		if (md[j] > md[maxj])
+			maxj = j;
+		if (md[j] != 0 && (md[j] < md[minj] || md[minj] == 0))
+			minj = j;
+	}
+
+	Output->print_title(fp, "Month-Day combined map");
+	Output->print_subtitle(fp, "Brighter means higher level of traffic");
+	snprintf(buf, VI_LINE_MAX, "Day with max traffic is %s %s with size",
+	         ylabel[maxj/31], xlabel[maxj%31]);
+	Output->print_numkey_info(fp, buf, md[maxj]);
+	snprintf(buf, VI_LINE_MAX, "Day with min traffic is %s %s with size",
 	         ylabel[minj/31], xlabel[minj%31]);
 	Output->print_numkey_info(fp, buf, md[minj]);
 	Output->print_hline(fp);
@@ -2708,26 +2901,30 @@ int vi_print_report(char *of, struct vih *vih) {
 		vi_print_monthday_map_report(fp, vih);
 		vi_print_hline(fp);
 	}
-	if (Config_process_pageviews) {
-		vi_print_pageviews_report(fp, vih);
-		vi_print_hline(fp);
-	}
 	vi_print_pages_report(fp, vih);
 	vi_print_hline(fp);
-	vi_print_images_report(fp, vih);
-	vi_print_hline(fp);
-	vi_print_requests_report(fp, vih);
-	vi_print_hline(fp);
+	if (Config_process_sites) {
+		vi_print_sites_report(fp, vih);
+		vi_print_hline(fp);
+	}
+	if (Config_process_types) {
+		vi_print_types_report(fp, vih);
+		vi_print_hline(fp);
+	}
+	if (Config_process_hosts) {
+		vi_print_hosts_report(fp, vih);
+		vi_print_hline(fp);
+	}
 	if (Config_process_codes) {
 		vi_print_codes_report(fp, vih);
 		vi_print_hline(fp);
 	}
-	if (Config_process_error404) {
-		vi_print_error404_report(fp, vih);
+	if (Config_process_verbs) {
+		vi_print_verbs_report(fp, vih);
 		vi_print_hline(fp);
 	}
-	if (Config_process_tld) {
-		vi_print_tld_report(fp, vih);
+	if (Config_process_error404) {
+		vi_print_error404_report(fp, vih);
 		vi_print_hline(fp);
 	}
 	vi_print_weekdays_report(fp, vih);
@@ -2777,72 +2974,42 @@ void vi_stream_mode(struct vih *vih) {
 /* ----------------------------------- main --------------------------------- */
 
 /* command line switche IDs */
-enum { OPT_MAXREFERERS, OPT_MAXPAGES, OPT_MAXIMAGES, OPT_USERAGENTS, OPT_ALL, OPT_MAXLINES, OPT_GOOGLE, OPT_MAXGOOGLED, OPT_MAXUSERAGENTS, OPT_OUTPUT, OPT_VERSION, OPT_HELP, OPT_PREFIX, OPT_TRAILS, OPT_GOOGLEKEYPHRASES, OPT_GOOGLEKEYPHRASESAGE, OPT_MAXGOOGLEKEYPHRASES, OPT_MAXGOOGLEKEYPHRASESAGE, OPT_MAXTRAILS, OPT_GRAPHVIZ, OPT_WEEKDAYHOUR_MAP, OPT_MONTHDAY_MAP, OPT_REFERERSAGE, OPT_MAXREFERERSAGE, OPT_TAIL, OPT_TLD, OPT_MAXTLD, OPT_STREAM, OPT_OUTPUTFILE, OPT_UPDATEEVERY, OPT_RESETEVERY, OPT_OS, OPT_BROWSERS, OPT_ERROR404, OPT_MAXERROR404, OPT_TIMEDELTA, OPT_PAGEVIEWS, OPT_ROBOTS, OPT_MAXROBOTS, OPT_GRAPHVIZ_ignorenode_GOOGLE, OPT_GRAPHVIZ_ignorenode_EXTERNAL, OPT_GRAPHVIZ_ignorenode_NOREFERER, OPT_GOOGLEHUMANLANGUAGE, OPT_FILTERSPAM, OPT_MAXADSENSED, OPT_GREP, OPT_EXCLUDE, OPT_IGNORE404, OPT_DEBUG};
+enum { OPT_USERS, OPT_MAXPAGES, OPT_MAXTYPES, OPT_CODES, OPT_ALL, OPT_MAXLINES, OPT_SITES, OPT_TYPES, OPT_HOSTS, OPT_MAXHOSTS, OPT_OUTPUT, OPT_VERSION, OPT_HELP, OPT_PREFIX, OPT_MAXCODES, OPT_MAXSITES, OPT_WEEKDAYHOUR_MAP, OPT_MONTHDAY_MAP, OPT_TAIL, OPT_STREAM, OPT_OUTPUTFILE, OPT_UPDATEEVERY, OPT_RESETEVERY, OPT_ERROR404, OPT_MAXERROR404, OPT_TIMEDELTA, OPT_GREP, OPT_EXCLUDE, OPT_IGNORE404, OPT_DEBUG};
 
 /* command line switches definition:
  * the rule with short options is to take upper case the
  * 'special' options (the option a normal user should not use) */
 static struct ago_optlist visited_optlist[] = {
 	{ 'A',  "all",			OPT_ALL,		AGO_NOARG},
-	{ 'T',  "trails",		OPT_TRAILS,		AGO_NOARG},
-	{ 'G',	"google",		OPT_GOOGLE,		AGO_NOARG},
-	{ 'K',	"google-keyphrases",	OPT_GOOGLEKEYPHRASES,	AGO_NOARG},
-	{ 'Z',	"google-keyphrases-age", OPT_GOOGLEKEYPHRASESAGE, AGO_NOARG},
-	{ 'H',  "google-human-language", OPT_GOOGLEHUMANLANGUAGE, AGO_NOARG},
-	{ 'U',	"user-agents",		OPT_USERAGENTS,		AGO_NOARG},
+	{ 'U',	"users",		OPT_USERS,		AGO_NOARG},
 	{ 'W',  "weekday-hour-map",	OPT_WEEKDAYHOUR_MAP,	AGO_NOARG},
 	{ 'M',  "month-day-map",	OPT_MONTHDAY_MAP,	AGO_NOARG},
-	{ 'R',  "referers-age",		OPT_REFERERSAGE,	AGO_NOARG},
-	{ 'D',  "domains",		OPT_TLD,		AGO_NOARG},
-	{ 'O',  "operating-systems",	OPT_OS,			AGO_NOARG},
-	{ 'B',  "browsers",		OPT_BROWSERS,		AGO_NOARG},
-	{ 'X',  "error404",		OPT_ERROR404,		AGO_NOARG},
-	{ 'Y',  "pageviews",		OPT_PAGEVIEWS,		AGO_NOARG},
-	{ 'S',	"robots",		OPT_ROBOTS,		AGO_NOARG},
+	{ 'S',  "sites",		OPT_SITES,	AGO_NOARG},
+	{ 'T',  "types",		OPT_TYPES,		AGO_NOARG},
+	{ 'E',  "error404",		OPT_ERROR404,		AGO_NOARG},
+	{ 'H',  "hosts",		OPT_HOSTS,		AGO_NOARG},
+	{ 'C',  "codes",		OPT_HOSTS,		AGO_NOARG},
+	{ 'V',  "verbs",		OPT_HOSTS,		AGO_NOARG},
 	{ '\0', "stream",		OPT_STREAM,		AGO_NOARG},
 	{ '\0', "update-every",		OPT_UPDATEEVERY,	AGO_NEEDARG},
 	{ '\0',	"reset-every",		OPT_RESETEVERY,		AGO_NEEDARG},
 	{ 'f',	"output-file",		OPT_OUTPUTFILE,		AGO_NEEDARG},
 	{ 'm',	"max-lines",		OPT_MAXLINES,		AGO_NEEDARG},
-	{ 'r',	"max-referers",		OPT_MAXREFERERS,	AGO_NEEDARG},
-	{ 'p',	"max-pages",		OPT_MAXPAGES,		AGO_NEEDARG},
-	{ 'i',	"max-images",		OPT_MAXIMAGES,		AGO_NEEDARG},
-	{ 'x',	"max-error404",		OPT_MAXERROR404,	AGO_NEEDARG},
-	{ 'u',	"max-useragents",	OPT_MAXUSERAGENTS,	AGO_NEEDARG},
-	{ 't',	"max-trails",		OPT_MAXTRAILS,		AGO_NEEDARG},
-	{ 'g',	"max-googled",		OPT_MAXGOOGLED,		AGO_NEEDARG},
-	{ '\0',	"max-adsensed",		OPT_MAXADSENSED,	AGO_NEEDARG},
-	{ 'k',	"max-google-keyphrases",OPT_MAXGOOGLEKEYPHRASES,AGO_NEEDARG},
-	{
-		'z',	"max-google-keyphrases-age",OPT_MAXGOOGLEKEYPHRASESAGE,
-		AGO_NEEDARG
-	},
-	{ 'a',	"max-referers-age",	OPT_MAXREFERERSAGE,	AGO_NEEDARG},
-	{ 'd',	"max-domains",		OPT_MAXTLD,		AGO_NEEDARG},
-	{ 's',	"max-robots",		OPT_MAXROBOTS,		AGO_NEEDARG},
-	{ '\0', "grep",                 OPT_GREP,               AGO_NEEDARG},
-	{ '\0', "exclude",              OPT_EXCLUDE,            AGO_NEEDARG},
+	{ '\0',	"max-hosts",		OPT_MAXHOSTS,	AGO_NEEDARG},
+	{ '\0',	"max-pages",		OPT_MAXPAGES,		AGO_NEEDARG},
+	{ '\0',	"max-codes",		OPT_MAXCODES,		AGO_NEEDARG},
+	{ '\0',	"max-error404",		OPT_MAXERROR404,	AGO_NEEDARG},
+	{ '\0',	"max-types",	OPT_MAXTYPES,	AGO_NEEDARG},
+	{ '\0',	"max-sites",		OPT_MAXSITES,		AGO_NEEDARG},
+	{ 'G',  "grep",                 OPT_GREP,               AGO_NEEDARG},
+	{ 'X',  "exclude",              OPT_EXCLUDE,            AGO_NEEDARG},
 	{ 'P',  "prefix",		OPT_PREFIX,		AGO_NEEDARG},
 	{ 'o',  "output",		OPT_OUTPUT,		AGO_NEEDARG},
-	{ 'V',  "graphviz",		OPT_GRAPHVIZ,		AGO_NOARG},
-	{
-		'\0', "graphviz-ignorenode-google", OPT_GRAPHVIZ_ignorenode_GOOGLE,
-		AGO_NOARG
-	},
-	{
-		'\0', "graphviz-ignorenode-external", OPT_GRAPHVIZ_ignorenode_EXTERNAL,
-		AGO_NOARG
-	},
-	{
-		'\0', "graphviz-ignorenode-noreferer", OPT_GRAPHVIZ_ignorenode_NOREFERER,
-		AGO_NOARG
-	},
 	{ 'v',  "version",		OPT_VERSION,		AGO_NOARG},
 	{ '\0', "tail",			OPT_TAIL,		AGO_NOARG},
 	{ '\0', "time-delta",		OPT_TIMEDELTA,		AGO_NEEDARG},
-	{ '\0', "filter-spam",          OPT_FILTERSPAM,         AGO_NOARG},
 	{ '\0', "ignore-404",           OPT_IGNORE404,          AGO_NOARG},
-	{ '\0',	"debug",		OPT_DEBUG,		AGO_NOARG},
+	{ 'd',	"debug",		OPT_DEBUG,		AGO_NOARG},
 	{ 'h',	"help",			OPT_HELP,		AGO_NOARG},
 	AGO_LIST_TERM
 };
@@ -2892,41 +3059,50 @@ int main(int argc, char **argv) {
 		case OPT_VERSION:
 			printf("Visitors %s\n", VI_VERSION_STR);
 			exit(0);
-		case OPT_MAXREFERERS:
-			Config_max_requests = atoi(ago_optarg);
-			break;
 		case OPT_MAXPAGES:
 			Config_max_pages = atoi(ago_optarg);
 			break;
-		case OPT_MAXIMAGES:
-			Config_max_images = atoi(ago_optarg);
+		case OPT_MAXTYPES:
+			Config_max_types = atoi(ago_optarg);
+			break;
+		case OPT_MAXHOSTS:
+			Config_max_hosts = atoi(ago_optarg);
 			break;
 		case OPT_MAXERROR404:
 			Config_max_error404 = atoi(ago_optarg);
 			break;
-		case OPT_MAXUSERAGENTS:
+		case OPT_MAXCODES:
 			Config_max_codes = atoi(ago_optarg);
 			break;
-		case OPT_MAXTLD:
-			Config_max_tld = atoi(ago_optarg);
+		case OPT_MAXSITES:
+			Config_max_sites = atoi(ago_optarg);
 			break;
-		case OPT_TLD:
-			Config_process_tld = 1;
+		case OPT_SITES:
+			Config_process_sites = 1;
 			break;
 		case OPT_ERROR404:
 			Config_process_error404 = 1;
 			break;
-		case OPT_PAGEVIEWS:
-			Config_process_pageviews = 1;
+		case OPT_TYPES:
+			Config_process_types = 1;
+			break;
+		case OPT_HOSTS:
+			Config_process_hosts = 1;
+			break;
+		case OPT_CODES:
+			Config_process_codes = 1;
 			break;
 		case OPT_ALL:
 			Config_process_codes = 1;
 			Config_process_weekdayhour_map = 1;
 			Config_process_monthday_map = 1;
-			Config_process_tld = 1;
+			Config_process_sites = 1;
 			Config_process_error404 = 1;
 			Config_process_pageviews = 1;
-			Config_process_codes = 1;
+			Config_process_types = 1;
+			Config_process_users = 1;
+			Config_process_hosts = 1;
+			Config_process_verbs = 1;
 			break;
 		case OPT_PREFIX:
 			if (Config_prefix_num < VI_PREFIXES_MAX) {
@@ -2942,10 +3118,11 @@ int main(int argc, char **argv) {
 			int aux = atoi(ago_optarg);
 			Config_max_requests = aux;
 			Config_max_pages = aux;
-			Config_max_images = aux;
+			Config_max_types = aux;
 			Config_max_error404 = aux;
 			Config_max_codes = aux;
-			Config_max_tld = aux;
+			Config_max_hosts = aux;
+			Config_max_sites = aux;
 		}
 		break;
 		case OPT_OUTPUT:
@@ -2982,9 +3159,6 @@ int main(int argc, char **argv) {
 			break;
 		case OPT_TIMEDELTA:
 			Config_time_delta = atoi(ago_optarg);
-			break;
-		case OPT_FILTERSPAM:
-			Config_filter_spam = 1;
 			break;
 		case OPT_GREP:
 			ConfigAddGrepPattern(ago_optarg, VI_PATTERNTYPE_GREP);

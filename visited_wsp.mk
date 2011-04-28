@@ -2,7 +2,7 @@
 
 All:
 	@echo ----------Building project:[ visited - Debug ]----------
-	@"mingw32-make.exe"  -j 2 -f "visited.mk"
+	@"mingw32-make.exe"  -j 1 -f "visited.mk"
 clean:
 	@echo ----------Cleaning project:[ visited - Debug ]----------
-	@"mingw32-make.exe"  -j 2 -f "visited.mk" clean
+	@"mingw32-make.exe"  -j 1 -f "visited.mk" clean

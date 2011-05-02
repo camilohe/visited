@@ -1,6 +1,6 @@
 /* visited -- fast winroute proxy logs analyzer.
  *
- * Copyright (C) 2011-2016 Camilo E. Hidalgo Estevez <camiloehe@gmail.com>
+ * Copyright (C) 2011-2012 Camilo E. Hidalgo Estevez <camiloehe@gmail.com>
  * Based on Visitors by Salvatore Sanfilippo <antirez@invece.org>
  * for more information visit http://www.hping.org/visitors
  * All Rights Reserved.
@@ -37,7 +37,7 @@
 /* Max length of a log entry date */
 #define VI_DATE_MAX 64
 /* Version as a string */
-#define VI_VERSION_STR "0.711"
+#define VI_VERSION_STR "0.20"
 
 /*------------------------------- data structures ----------------------------*/
 
@@ -48,7 +48,7 @@ struct vih {
 	int processed;
 	int invalid;
 	int blacklisted;
-	
+
 	int hour_hits[24];
 	int hour_size[24];
 	int weekday_hits[7];
@@ -76,7 +76,6 @@ struct vih {
 	struct hashtable types_size;
 
 	struct hashtable error404;
-	struct hashtable pageviews;
 
 	struct hashtable date;
 	struct hashtable month;
@@ -153,8 +152,7 @@ int Config_process_sites = 0;
 int Config_process_types = 0;
 int Config_process_hosts = 0;
 int Config_process_error404 = 0;
-int Config_process_pageviews = 0;
-int Config_process_monthly_users = 1;
+int Config_process_monthly_hits = 1;
 int Config_tail_mode = 0;
 int Config_stream_mode = 0;
 int Config_update_every = 60*10; /* update every 10 minutes for default. */
@@ -210,50 +208,6 @@ int vi_is_google_link(char *s) {
 	return !strncmp(s, "http://www.google.", 18);
 }
 
-/* Returns non-zero if the user agent appears to be the GoogleBot. */
-int vi_is_googlebot_agent(char *agent) {
-	if (strstr(agent, "Googlebot") ||
-	        strstr(agent, "googlebot")) return 1;
-	return 0;
-}
-
-/* Returns non-zero if the user agent appears to be the Mediapartners-Google. */
-int vi_is_adsensebot_agent(char *agent) {
-	if (strstr(agent, "Mediapartners-Google")) return 1;
-	return 0;
-}
-
-int vi_is_yahoobot_agent(char *agent) {
-	if (strstr(agent, "Yahoo! Slurp")) return 1;
-	return 0;
-}
-
-int vi_is_msbot_agent(char *agent) {
-	if (strstr(agent, "msn.com/msnbot.htm")) return 1;
-	return 0;
-}
-
-/* Try to guess if a given agent string is about a crawler/bot
- * of some time. This function MUST be conservative, because
- * false negatives are acceptable while false positives arent. */
-int vi_is_genericbot_agent(char *agent) {
-	if (strstr(agent, "crawler") ||
-	        strstr(agent, "Crawler") ||
-	        strstr(agent, "bot/") ||
-	        strstr(agent, "Bot/") ||
-	        strstr(agent, "bot.htm") ||
-	        strstr(agent, "+http://")) return 1;
-	return 0;
-}
-
-int vi_is_bot_agent(char *agent) {
-	if (vi_is_googlebot_agent(agent) ||
-	        vi_is_adsensebot_agent(agent) ||
-	        vi_is_yahoobot_agent(agent) ||
-	        vi_is_msbot_agent(agent)) return 1;
-	return 0;
-}
-
 /* Returns non-zero if the url matches some user-specified prefix.
  * being a link "internal" to the site. Otherwise zero is returned.
  *
@@ -271,31 +225,6 @@ int vi_is_internal_link(char *url) {
 			return Config_prefix[i].len;
 		}
 	}
-	return 0;
-}
-
-/* returns non-zero if the URL 's' seems an image or a CSS file. */
-int vi_is_image(char *s) {
-	int l = strlen(s);
-	char *end = s + l; /* point to the nul term */
-
-	if (l < 5) return 0;
-	if (!memcmp(end-4, ".css", 4) ||
-	        !memcmp(end-4, ".jpg", 4) ||
-	        !memcmp(end-4, ".gif", 4) ||
-	        !memcmp(end-4, ".png", 4) ||
-	        !memcmp(end-4, ".ico", 4) ||
-	        !memcmp(end-4, ".swf", 4) ||
-	        !memcmp(end-3, ".js", 3) ||
-	        !memcmp(end-5, ".jpeg", 5) ||
-	        !memcmp(end-4, ".CSS", 4) ||
-	        !memcmp(end-4, ".JPG", 4) ||
-	        !memcmp(end-4, ".GIF", 4) ||
-	        !memcmp(end-4, ".PNG", 4) ||
-	        !memcmp(end-4, ".ICO", 4) ||
-	        !memcmp(end-4, ".SWF", 4) ||
-	        !memcmp(end-3, ".JS", 3) ||
-	        !memcmp(end-5, ".JPEG", 5)) return 1;
 	return 0;
 }
 
@@ -792,8 +721,9 @@ void vi_reset_hashtables(struct vih *vih) {
 	ht_destroy(&vih->codes_size);
 	ht_destroy(&vih->verbs_hits);
 	ht_destroy(&vih->verbs_size);
+	ht_destroy(&vih->types_hits);
+	ht_destroy(&vih->types_size);
 	ht_destroy(&vih->error404);
-	ht_destroy(&vih->pageviews);
 	ht_destroy(&vih->date);
 	ht_destroy(&vih->month);
 }
@@ -833,8 +763,9 @@ struct vih *vi_new(void) {
 	vi_ht_init(&vih->codes_size);
 	vi_ht_init(&vih->verbs_hits);
 	vi_ht_init(&vih->verbs_size);
+	vi_ht_init(&vih->types_hits);
+	vi_ht_init(&vih->types_size);
 	vi_ht_init(&vih->error404);
-	vi_ht_init(&vih->pageviews);
 	vi_ht_init(&vih->date);
 	vi_ht_init(&vih->month);
 	return vih;
@@ -1149,13 +1080,16 @@ int vi_parse_line(struct logline *ll, char *l) {
 	ll->timezone = timezone;
 	ll->req = req;
 	ll->verb = verb;
+	// convert size to KB for storage
+	ll->size = atol(size) >> 10;
+	// exit if we an http code with more than 3 digits
+	if (strlen(code) > 3) return 1;
 	ll->code = code;
-	ll->size = atol(size);
 	return 0;
 }
 
 /* process the weekday and hour information */
-void vi_process_date_and_hour(struct vih *vih, int weekday, int hour, int size) {
+void vi_process_date_and_hour(struct vih *vih, int weekday, int hour, long size) {
 	/* Note, the following sanity check is useless in theory. */
 	if (weekday < 0 || weekday > 6 || hour < 0 || hour > 23) return;
 	vih->weekday_hits[weekday]++;
@@ -1169,171 +1103,90 @@ void vi_process_date_and_hour(struct vih *vih, int weekday, int hour, int size) 
 }
 
 /* process the month and day information */
-void vi_process_month_and_day(struct vih *vih, int month, int day, int size) {
+void vi_process_month_and_day(struct vih *vih, int month, int day, long size) {
 	if (month < 0 || month > 11 || day < 0 || day > 30) return;
 	vih->monthday_hits[month][day]++;
 	vih->monthday_size[month][day] += size;
 }
 
-/* Process unique users populating the relative hash table.
- * Return non-zero on out of memory. This is also used to populate
- * the hashtable used for the "pageviews per user" statistics.
- *
- * Note that the last argument 'seen', is an integer passed by reference
- * that is set to '1' if this is not a new visit (otherwise it's set to zero) */
-int vi_process_users_per_day(struct vih *vih, char *host, char *user, char *date, char *req, long size, int *seen) {
-	char visday[VI_LINE_MAX], *p, *month = "fixme if I'm here!";
-	char buf[64];
-	int res, host_len, user_len, date_len, hash_len;
-	unsigned long h;
-
-	/* Build an unique identifier for this visit
-	 * adding together host, date and hash(user) */
-	host_len = strlen(host);
-	user_len = strlen(user);
-	date_len = strlen(date);
-	h = djb_hash((unsigned char*) user, user_len);
-	sprintf(buf, "%lu", h);
-	hash_len = strlen(buf);
-	if (host_len+user_len+date_len+4 > VI_LINE_MAX)
-		return 0;
-	p = visday;
-	memcpy(p, host, host_len);
-	p += host_len;
-	*p++ = '|';
-	memcpy(p, date, date_len);
-	p += date_len;
-	*p++ = '|';
-	memcpy(p, buf, hash_len);
-	p += hash_len;
-	*p = '\0';
-	/* fprintf(stderr, "%s\n", visday); */
-
-	if (Config_process_monthly_users) {
-		/* Skip the day number. */
-		month = strchr(date, '/');
-		if (!month) return 0; /* should never happen */
-		month++;
-	}
-
-	/* Populate the 'pageviews per user' hash table */
-	if (Config_process_pageviews && vi_is_pageview(req)) {
-		res = vi_counter_incr(&vih->pageviews, visday);
-		if (res == 0) return 1; /* out of memory */
-	}
-	/* Mark the visit in the non-google-specific hashtable */
-//	res = vi_counter_incr(&vih->users, visday);
-	if (res == 0) return 1; /* out of memory */
-	if (res > 1) {
-		if (seen) *seen = 1; /* visit alredy seen. */
-		return 0;
-	}
-	if (seen) *seen = 0; /* new visitor */
-	res = vi_counter_incr(&vih->date, date);
-	if (res == 0) return 1;
-	if (Config_process_monthly_users) {
-		res = vi_counter_incr(&vih->month, month);
-		if (res == 0) return 1;
-	}
-	return 0;
-}
-
-/* Process unique visitors populating the relative hash table.
- * Return non-zero on out of memory. This is also used to populate
- * the hashtable used for the "pageviews per user" statistics.
- *
- * Note that the last argument 'seen', is an integer passed by reference
- * that is set to '1' if this is not a new visit (otherwise it's set to zero) */
-int vi_process_visitors(struct vih *vih, char *host, char *user, char *date, char *req, long size, int *seen) {
-	char visday[VI_LINE_MAX], *p, *month = "fixme if I'm here!";
-	char buf[64];
-	int res, host_len, user_len, date_len, hash_len;
-	unsigned long h;
-
-	/* Build an unique identifier for this visit
-	 * adding together host, date and hash(user) */
-	host_len = strlen(host);
-	user_len = strlen(user);
-	date_len = strlen(date);
-	h = djb_hash((unsigned char*) user, user_len);
-	sprintf(buf, "%lu", h);
-	hash_len = strlen(buf);
-	if (host_len+user_len+date_len+4 > VI_LINE_MAX)
-		return 0;
-	p = visday;
-	memcpy(p, host, host_len);
-	p += host_len;
-	*p++ = '|';
-	memcpy(p, date, date_len);
-	p += date_len;
-	*p++ = '|';
-	memcpy(p, buf, hash_len);
-	p += hash_len;
-	*p = '\0';
-	/* fprintf(stderr, "%s\n", visday); */
-
-	if (Config_process_monthly_users) {
-		/* Skip the day number. */
-		month = strchr(date, '/');
-		if (!month) return 0; /* should never happen */
-		month++;
-	}
-
-	/* Populate the 'pageviews per user' hash table */
-	if (Config_process_pageviews && vi_is_pageview(req)) {
-		res = vi_counter_incr(&vih->pageviews, user);
-		if (res == 0) return 1; /* out of memory */
-	}
-	/* Mark the visit in the users hashtable */
-//	res = vi_counter_incr(&vih->users, user);
-	if (res == 0) return 1; /* out of memory */
-
-	/* Mark the visit in the hosts hashtable */
-//	res = vi_counter_incr(&vih->hosts, host);
-	if (res == 0) return 1; /* out of memory */
-
-	res = vi_counter_incr(&vih->date, date);
-	if (res == 0) return 1;
-	if (Config_process_monthly_users) {
-		res = vi_counter_incr(&vih->month, month);
-		if (res == 0) return 1;
-	}
-	return 0;
-}
-
 /* Process requests populating the pages and sites hash tables.
+ * Populate also date and month hash tables if requested 
  * Return non-zero on out of memory. */
-int vi_process_requests(struct vih *vih, char *req, int size) {
+int vi_process_requests(struct vih *vih, char *req, long size, char *date) {
+	char *p, *site = NULL, *month = "fixme if I'm here!";
 	int res;
 
-	/* Don't count internal referer (specified by the user
+	/* Don't count internal links (specified by the user
 	 * using --prefix options) */
 	if (vi_is_internal_link(req)) {
 		res = vi_traffic_incr(&vih->pages_size, "Internal Link", size);
 		if (res == 0) return 1;
-		return !vi_counter_incr(&vih->pages_hits, "Internal Link");
+		res = vi_counter_incr(&vih->pages_hits, "Internal Link");
+		if (res == 0) return 1;
+		return 0;
 	}
 	res = vi_traffic_incr(&vih->pages_size, req, size);
 	if (res == 0) return 1;
 	res = vi_counter_incr(&vih->pages_hits, req);
 	if (res == 0) return 1;
+
+	/* sites */
+	if (Config_process_sites) {
+		if ((p = strchr(req, '/')) != NULL) {
+			site = p+2;
+			/* strip http ver */
+			if ((p = strchr(site, '/')) != NULL) {
+				// this modifies url so we have to restore it below to avoid side effects
+				*p = '\0';
+				res = vi_traffic_incr(&vih->sites_size, site, size);
+				if (res == 0) return 1;
+				res = vi_counter_incr(&vih->sites_hits, site);
+				if (res == 0) return 1;
+				// restore url to avoid interfering with functions called after this 
+				*p = '/';
+			}
+		}
+	}
+
+	/* daily hits */
+	res = vi_counter_incr(&vih->date, date);
+	if (res == 0) return 1;
+	/* monthly hits */
+	if (Config_process_monthly_hits) {
+		/* Skip the day number. */
+		month = strchr(date, '/');
+		if (!month) return 0; /* should never happen */
+		res = vi_counter_incr(&vih->month, month);
+		if (res == 0) return 1;
+	}
 	return 0;
 }
 
-/* Process requested URLs. Split the entries in two hash tables,
- * one for pages and one for images. Also use a third table for all URLs.
+/* Process requests populating the types hash table.
  * Return non-zero on out of memory. */
-int vi_process_page_request(struct vih *vih, char *url) {
-	int res;
-	char urldecoded[VI_LINE_MAX];
+int vi_process_types(struct vih *vih, char *url, long size) {
+	int res, c;
+	char *dot, *p;
 
-	vi_urldecode(urldecoded, url, VI_LINE_MAX);
-//	if (vi_is_image(url))
-//		res = vi_counter_incr(&vih->images, urldecoded);
-//	else
-//		res = vi_counter_incr(&vih->pages, urldecoded);
+    // skip the first 3 "/" slashes in proto://host.name/
+	c = 0;
+	p = url;
+	while (*p && c<3) {
+		if (*p == '/') c++;
+		p++;
+	}
+	if (!*p) return 0;
+	// get the last "." position 
+	dot = strrchr(p, '.');
+	if (!dot) return 0;
+
+    // some sanity checks: file type can not have "?" nor "/"
+	if (strchr(dot, '?')) return 0;
+	if (strchr(dot, '/')) return 0;
+	
+    res = vi_counter_incr(&vih->types_hits, dot);
 	if (res == 0) return 1;
-//	res = vi_counter_incr(&vih->visited, urldecoded);
+	res = vi_traffic_incr(&vih->types_size, dot, size);
 	if (res == 0) return 1;
 	return 0;
 }
@@ -1353,10 +1206,10 @@ int vi_process_error404(struct vih *vih, char *l, char *url, int *is404) {
 
 /* Process codes populating the relative hash table.
  * Return non-zero on out of memory. */
-int vi_process_codes(struct vih *vih, char *code, int size) {
+int vi_process_codes(struct vih *vih, char *code, long size) {
 	int res;
 
-	res = vi_traffic_incr(&vih->codes_hits, code, size);
+	res = vi_traffic_incr(&vih->codes_size, code, size);
 	if (res == 0) return 1;
 	res = vi_counter_incr(&vih->codes_hits, code);
 	if (res == 0) return 1;
@@ -1365,10 +1218,10 @@ int vi_process_codes(struct vih *vih, char *code, int size) {
 
 /* Process verbs populating the relative hash table.
  * Return non-zero on out of memory. */
-int vi_process_verbs(struct vih *vih, char *verb, int size) {
+int vi_process_verbs(struct vih *vih, char *verb, long size) {
 	int res;
 
-	res = vi_traffic_incr(&vih->verbs_hits, verb, size);
+	res = vi_traffic_incr(&vih->verbs_size, verb, size);
 	if (res == 0) return 1;
 	res = vi_counter_incr(&vih->verbs_hits, verb);
 	if (res == 0) return 1;
@@ -1377,10 +1230,10 @@ int vi_process_verbs(struct vih *vih, char *verb, int size) {
 
 /* Process users populating the relative hash table.
  * Return non-zero on out of memory. */
-int vi_process_users(struct vih *vih, char *user, int size) {
+int vi_process_users(struct vih *vih, char *user, long size) {
 	int res;
 
-	res = vi_traffic_incr(&vih->users_hits, user, size);
+	res = vi_traffic_incr(&vih->users_size, user, size);
 	if (res == 0) return 1;
 	res = vi_counter_incr(&vih->users_hits, user);
 	if (res == 0) return 1;
@@ -1389,10 +1242,10 @@ int vi_process_users(struct vih *vih, char *user, int size) {
 
 /* Process hosts populating the relative hash table.
  * Return non-zero on out of memory. */
-int vi_process_hosts(struct vih *vih, char *host, int size) {
+int vi_process_hosts(struct vih *vih, char *host, long size) {
 	int res;
 
-	res = vi_traffic_incr(&vih->hosts_hits, host, size);
+	res = vi_traffic_incr(&vih->hosts_size, host, size);
 	if (res == 0) return 1;
 	res = vi_counter_incr(&vih->hosts_hits, host);
 	if (res == 0) return 1;
@@ -1441,59 +1294,6 @@ int vi_process_os(struct vih *vih, char *agent) {
 	return 0; /* return vi_counter_incr_matchtable(&vih->os, agent, oslist); */
 }
 
-/* Process browsers information. */
-int vi_process_browsers(struct vih *vih, char *agent) {
-	/* Note that the order matters. For example Safari
-	 * send an user agent where there is the string "Gecko"
-	 * so it must be before Gecko. */
-	char *browserslist[] = {
-		"Opera", NULL,
-		"MSIE 4", "Explorer 4.x",
-		"MSIE 5", "Explorer 5.x",
-		"MSIE 6", "Explorer 6.x",
-		"MSIE 7", "Explorer 7.x",
-		"MSIE", "Explorer unknown version",
-		"Safari", NULL,
-		"Konqueror", NULL,
-		"Galeon", NULL,
-		"Iceweasel", NULL,
-		"Firefox", NULL,
-		"MultiZilla", NULL,
-		"Gecko", "Other Mozilla based",
-		"Wget", NULL,
-		"Lynx", NULL,
-		"Links ", "Links",
-		"ELinks ", "Links",
-		"Elinks ", "Links",
-		"Liferea", NULL,
-		"w3m", "W3M",
-		"NATSU-MICAN", NULL,
-		"msnbot", "MSNbot",
-		"Slurp", "Yahoo Slurp",
-		"Jeeves", "Ask Jeeves",
-		"ZyBorg", NULL,
-		"asteria", NULL,
-		"contype", "Explorer",
-		"Gigabot", NULL,
-		"Windows-Media-Player", "Windows-MP",
-		"NSPlayer", NULL,
-		"Googlebot", "GoogleBot",
-		"googlebot", "GoogleBot",
-		"yacybot", "YaCy-Bot",
-		"Sogou", "Sogou.com Bot",
-		"psbot", "Picsearch.com Bot",
-		"sosospider", "Soso.com Bot",
-		"Baiduspider+", "Baidu.com Bot",
-		"Yandex", "Yandex.com Bot",
-		"Yeti", "Nava.com Bot",
-		"APT-HTTP", "Apt",
-		"git", "Git",
-		"", "Unknown",
-		NULL, NULL,
-	};
-	return 0; /* return vi_counter_incr_matchtable(&vih->browsers, agent, browserslist); */
-}
-
 /* Reverse a string in place. Courtesy of Bob Stout. */
 char *strrev(char *str) {
 	char *p1, *p2;
@@ -1508,42 +1308,6 @@ char *strrev(char *str) {
 	}
 
 	return str;
-}
-
-/* Process Domains.
- * Returns zero on success. Non zero is returned on out of memory. */
-int vi_process_tld(struct vih *vih, char *hostname) {
-	char *tld, *dot;
-	int res;
-
-	if (vi_is_numeric_address(hostname))
-		tld = "Unknown";
-	else {
-		strrev(hostname);
-		dot = strchr(hostname, '.');
-		if (!dot) return 0;
-
-		/* Show third-level domain for country-code top-level domains. */
-		/* Otherwise we get unhelpful entries like .co.uk. */
-		if (dot - hostname < 3) {
-			dot = strchr(++dot, '.');
-			if (!dot) return 0;
-		}
-
-		dot = strchr(++dot, '.');
-
-		if (!dot)
-			return 0;
-		else
-			*dot = '\0';
-
-		strrev(hostname);
-		tld = hostname;
-	}
-
-//	res = vi_counter_incr(&vih->tld, tld);
-	if (res == 0) return 1;
-	return 0;
 }
 
 /* Match a log line against --grep and --exclude patterns to check
@@ -1603,38 +1367,27 @@ int vi_process_line(struct vih *vih, char *l) {
 		if (Config_ignore_404 && is404)
 			return 0;
 
-		/* Now it's time to process unique visitors. The 'seen'
-		 * local var saves if this log line is about a new visit
-		 * or not. Some report is generated only against the first
-		 * line of every visitor, other reports are generated
-		 * for every single log line. */
-		/***TODO: rewrite - we have user and size but no user nor ref
-		if (vi_process_users_per_day(vih, ll.host, ll.user,
-		                             ll.date, ll.req, ll.size, &seen))
-			goto oom;
-		***/
-		if (vi_process_visitors(vih, ll.host, ll.user,
-		                             ll.date, ll.req, ll.size, &seen))
-			goto oom;
 		/* The following are processed for every log line */
-		if (vi_process_page_request(vih, ll.req)) goto oom;
+		if (vi_process_requests(vih, ll.req, ll.size, ll.date)) goto oom;
 
 		vi_process_date_and_hour(vih, (ll.tm.tm_wday+6)%7,
 		                         ll.tm.tm_hour, ll.size);
 		vi_process_month_and_day(vih, ll.tm.tm_mon, ll.tm.tm_mday-1, ll.size);
-		/***TODO: rewrite or delete - we have user and size but no agent nor ref***/
-		if (vi_process_requests(vih, ll.req, ll.size)) goto oom;
 
 		if (Config_process_users &&
 		        vi_process_users(vih, ll.user, ll.size)) goto oom;
+		if (Config_process_types &&
+		        vi_process_types(vih, ll.req, ll.size)) goto oom;
 		if (Config_process_codes &&
 		        vi_process_codes(vih, ll.code, ll.size)) goto oom;
 		if (Config_process_verbs &&
 		        vi_process_verbs(vih, ll.verb, ll.size)) goto oom;
 		if (Config_process_hosts &&
 		        vi_process_hosts(vih, ll.host, ll.size)) goto oom;
+
 		/* The following are processed only for new visits */
 		if (seen) return 0;
+		
 		return 0;
 	} else {
 		vih->invalid++;
@@ -1678,59 +1431,6 @@ int vi_scan(struct vih *vih, char *filename) {
 		fclose(fp);
 	vih->endt = time(NULL);
 	return 0;
-}
-
-/* Postprocessing of pageviews per visit data.
- * The source hashtable entries are in the form: uniqe-visitor -> pageviews.
- * After the postprocessing we obtain another hashtable in the form:
- * pageviews-range -> quantity. This hashtable can be used directly
- * with generic output functions to generate the output. */
-int vi_postprocess_pageviews(struct vih *vih) {
-	void **table;
-	int len = ht_used(&vih->pageviews), i;
-
-	if ((table = ht_get_array(&vih->pageviews)) == NULL) {
-		fprintf(stderr, "Out of memory in vi_postprocess_pageviews()\n");
-		return 1;
-	}
-	/* Run the hashtable in order to populate 'pageviews_grouped' */
-	for (i = 0; i < len; i++) {
-		int pv = (long) table[(i*2)+1]; /* pageviews of visit */
-		int res;
-		char *key;
-
-		if (pv == 1) key = "1";
-		else if (pv == 2) key = "2";
-		else if (pv == 3) key = "3";
-		else if (pv == 4) key = "4";
-		else if (pv == 5) key = "5";
-		else if (pv == 6) key = "6";
-		else if (pv == 7) key = "7";
-		else if (pv == 8) key = "8";
-		else if (pv == 9) key = "9";
-		else if (pv == 10) key = "10";
-		else if (pv >= 11 && pv <= 20) key = "11-20";
-		else if (pv >= 21 && pv <= 30) key = "21-30";
-		else key = "> 30";
-
-//		res = vi_counter_incr(&vih->pageviews_grouped, key);
-		if (res == 0) {
-			free(table);
-			return 1; /* out of memory */
-		}
-	}
-	free(table);
-	return 0;
-}
-
-/* This function is called from vi_print_report() in order to
- * run some postprocessing to raw data collected needed to generate reports. */
-int vi_postprocess(struct vih *vih) {
-	if (vi_postprocess_pageviews(vih)) goto oom;
-	return 0;
-oom:
-	vi_set_error(vih, "Out of memory");
-	return 1;
 }
 
 /* ---------------------------- text output module -------------------------- */
@@ -2074,7 +1774,8 @@ void om_html_print_keykey_entry(FILE *fp, char *key1, char *key2, int num) {
 	fprintf(fp, "<td align=\"left\" class=\"valueentry\">");
 	om_html_entities(fp, key1);
 	fprintf(fp, "</td><td align=\"left\" class=\"keyentry\">");
-	if (!strncmp(key2, "http://", 7)) {
+	
+	if (strncmp(key2, "http://", 7) || !strncmp(key2, "https://", 8) || !strncmp(key2, "ftp://", 6)) {
 		fprintf(fp, "<a class=\"url\" href=\"%s\">", key2);
 		om_html_entities(fp, key2);
 		fprintf(fp, "</a>");
@@ -2095,7 +1796,7 @@ void om_html_print_numkey_entry(FILE *fp, char *key, int val, char *link,
 		fprintf(fp, "<a class=\"url\" href=\"%s\">", link);
 		om_html_entities(fp, key);
 		fprintf(fp, "</a>");
-	} else if (!strncmp(key, "http://", 7)) {
+	} else if (!strncmp(key, "http://", 7) || !strncmp(key, "https://", 8) || !strncmp(key, "ftp://", 6)) {
 		fprintf(fp, "<a class=\"url\" href=\"%s\">", key);
 		om_html_entities(fp, key);
 		fprintf(fp, "</a>");
@@ -2253,7 +1954,7 @@ void vi_print_hours_report(FILE *fp, struct vih *vih) {
 		tot_size += vih->hour_size[i];
 	}
 	Output->print_title(fp, "Hours distribution");
-	Output->print_subtitle(fp, "Percentage of size in every hour of the day");
+	Output->print_subtitle(fp, "Percentage of traffic in every hour of the day");
 	for (i = 0; i < 24; i++) {
 		char buf[8];
 		sprintf(buf, "%02d", i);
@@ -2280,7 +1981,7 @@ void vi_print_weekdays_report(FILE *fp, struct vih *vih) {
 		tot_size += vih->weekday_size[i];
 	}
 	Output->print_title(fp, "Weekdays distribution");
-	Output->print_subtitle(fp, "Percentage of size in every day of the week");
+	Output->print_subtitle(fp, "Percentage of traffic in every day of the week");
 	for (i = 0; i < 7; i++) {
 		Output->print_numkeybar_entry(fp, vi_wdname[i], max_size, tot_size, vih->weekday_size[i]);
 	}
@@ -2368,14 +2069,14 @@ int qsort_cmp_time_value(const void *a, const void *b) {
 	return 0;
 }
 
-void vi_print_visits_report(FILE *fp, struct vih *vih) {
+void vi_print_hits_report(FILE *fp, struct vih *vih) {
 	int days = ht_used(&vih->date), i, tot = 0, max = 0;
 	int months;
 	void **table;
 
-	Output->print_title(fp, "Unique visitors in each day");
-	Output->print_subtitle(fp, "Multiple hits with the same IP, user agent and access day, are considered a single visit");
-	Output->print_numkey_info(fp, "Number of unique visitors",
+	Output->print_title(fp, "Daily hits");
+	Output->print_subtitle(fp, "Hits in each day");
+	Output->print_numkey_info(fp, "Number of users",
 	                          ht_used(&vih->users_hits));
 	Output->print_numkey_info(fp, "Different days in logfile",
 	                          ht_used(&vih->date));
@@ -2399,19 +2100,19 @@ void vi_print_visits_report(FILE *fp, struct vih *vih) {
 	free(table);
 	Output->print_hline(fp);
 
-	/* Montly */
-	if (Config_process_monthly_users == 0) return;
+	/* Monthly */
+	if (Config_process_monthly_hits == 0) return;
 	tot = max = 0;
 	months = ht_used(&vih->month);
-	Output->print_title(fp, "Unique visitors in each month");
-	Output->print_subtitle(fp, "Multiple hits with the same IP, user agent and access day, are considered a single visit");
-	Output->print_numkey_info(fp, "Number of unique visitors",
+	Output->print_title(fp, "Monthly hits");
+	Output->print_subtitle(fp, "Hits in each month");
+	Output->print_numkey_info(fp, "Number of users",
 	                          ht_used(&vih->users_hits));
 	Output->print_numkey_info(fp, "Different months in logfile",
 	                          ht_used(&vih->month));
 
 	if ((table = ht_get_array(&vih->month)) == NULL) {
-		fprintf(stderr, "Out Of Memory in print_visits_report()\n");
+		fprintf(stderr, "Out of memory in print_visits_report()\n");
 		return;
 	}
 	qsort(table, months, sizeof(void*)*2, qsort_cmp_months_key);
@@ -2489,51 +2190,6 @@ void vi_print_generic_keyvalbar_report(FILE *fp, char *title, char *subtitle,
 	free(table);
 }
 
-/* This is similar to the generic key/val report, but
- * different enough to be better served by a specific function. */
-void vi_print_keyphrases_report(FILE *fp, char *title, char *subtitle,
-                                char *info, int maxlines,
-                                struct hashtable *ht,
-                                int(*compar)(const void *, const void *)) {
-	int items = ht_used(ht), i;
-	void **table;
-
-	Output->print_title(fp, title);
-	Output->print_subtitle(fp, subtitle);
-	Output->print_numkey_info(fp, info, items);
-	if ((table = ht_get_array(ht)) == NULL) {
-		fprintf(stderr, "Out of memory in print_keyphrases_report()\n");
-		return;
-	}
-	qsort(table, items, sizeof(void*)*2, compar);
-	for (i = 0; i < items; i++) {
-		char *key = table[i*2];
-		long value = (long) table[(i*2)+1];
-		if (i >= maxlines) break;
-		if (key[0] == '\0')
-			Output->print_numkey_entry(fp, "none", value, NULL,
-			                           i+1);
-		else {
-			char *p;
-			char link[VI_LINE_MAX];
-			char aux[VI_LINE_MAX];
-			char encodedkey[VI_LINE_MAX];
-
-			vi_strlcpy(link, "http://www.google.com/search?q=", VI_LINE_MAX);
-			vi_strlcpy(aux, key, VI_LINE_MAX);
-			p = strrchr(aux, '(');
-			if (p) {
-				if (p > aux) p--; /* seek the space on left */
-				*p = '\0';
-			}
-			vi_urlencode(encodedkey, aux, VI_LINE_MAX);
-			vi_strlcat(link, encodedkey, VI_LINE_MAX);
-			Output->print_numkey_entry(fp, key, value, link, i+1);
-		}
-	}
-	free(table);
-}
-
 void vi_print_pages_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyval_report(
 	    fp,
@@ -2584,7 +2240,7 @@ void vi_print_types_report(FILE *fp, struct vih *vih) {
 }
 
 void vi_print_codes_report(FILE *fp, struct vih *vih) {
-	vi_print_generic_keyval_report(
+	vi_print_generic_keyvalbar_report(
 	    fp,
 	    "HTTP codes",
 	    "HTTP codes ordered by hits",
@@ -2592,7 +2248,7 @@ void vi_print_codes_report(FILE *fp, struct vih *vih) {
 	    Config_max_codes,
 	    &vih->codes_hits,
 	    qsort_cmp_long_value);
-	vi_print_generic_keyval_report(
+	vi_print_generic_keyvalbar_report(
 	    fp,
 	    "HTTP codes",
 	    "HTTP codes ordered by size",
@@ -2637,6 +2293,25 @@ void vi_print_hosts_report(FILE *fp, struct vih *vih) {
 	    "Total size of hosts",
 	    Config_max_hosts,
 	    &vih->hosts_size,
+	    qsort_cmp_long_value);
+}
+
+void vi_print_users_report(FILE *fp, struct vih *vih) {
+	vi_print_generic_keyvalbar_report(
+	    fp,
+	    "Users",
+	    "Users sorted by hits",
+	    "Total number of users",
+	    Config_max_hosts,
+	    &vih->users_hits,
+	    qsort_cmp_long_value);
+	vi_print_generic_keyvalbar_report(
+	    fp,
+	    "Users",
+	    "Users sorted by size",
+	    "Total size of users",
+	    Config_max_hosts,
+	    &vih->users_size,
 	    qsort_cmp_long_value);
 }
 
@@ -2765,10 +2440,10 @@ void vi_print_weekdayhour_map_report(FILE *fp, struct vih *vih) {
 	Output->print_numkey_info(fp, buf, hw[minj]);
 	Output->print_hline(fp);
 	Output->print_bidimentional_map(fp, 24, 7, xlabel, ylabel, hw);
-	
+
 	/* do sizes now */
 	hw = (int*) vih->weekdayhour_hits;
-	
+
 	/* Check indexes of minimum and maximum in the array. */
 	for (j = 0; j < 24*7; j++) {
 		if (hw[j] > hw[maxj])
@@ -2825,7 +2500,7 @@ void vi_print_monthday_map_report(FILE *fp, struct vih *vih) {
 
 	/* do sizes now */
 	md = (int*) vih->monthday_size;
-	
+
 	/* Check indexes of minimum and maximum in the array. */
 	for (j = 0; j < 12*31; j++) {
 		if (md[j] > md[maxj])
@@ -2880,9 +2555,6 @@ int vi_print_report(char *of, struct vih *vih) {
 		}
 	}
 
-	/* Do some data postprocessing needed to generate reports */
-	if (vi_postprocess(vih))
-		return 1;
 	/* Report generation */
 	vi_print_header(fp);
 	vi_print_credits(fp);
@@ -2891,16 +2563,7 @@ int vi_print_report(char *of, struct vih *vih) {
 	vi_print_hline(fp);
 	vi_print_report_links(fp);
 	vi_print_hline(fp);
-	vi_print_visits_report(fp, vih);
-	vi_print_hline(fp);
-	if (Config_process_weekdayhour_map) {
-		vi_print_weekdayhour_map_report(fp, vih);
-		vi_print_hline(fp);
-	}
-	if (Config_process_monthday_map) {
-		vi_print_monthday_map_report(fp, vih);
-		vi_print_hline(fp);
-	}
+	
 	vi_print_pages_report(fp, vih);
 	vi_print_hline(fp);
 	if (Config_process_sites) {
@@ -2909,6 +2572,10 @@ int vi_print_report(char *of, struct vih *vih) {
 	}
 	if (Config_process_types) {
 		vi_print_types_report(fp, vih);
+		vi_print_hline(fp);
+	}
+	if (Config_process_users) {
+		vi_print_users_report(fp, vih);
 		vi_print_hline(fp);
 	}
 	if (Config_process_hosts) {
@@ -2927,10 +2594,24 @@ int vi_print_report(char *of, struct vih *vih) {
 		vi_print_error404_report(fp, vih);
 		vi_print_hline(fp);
 	}
+	
 	vi_print_weekdays_report(fp, vih);
 	vi_print_hline(fp);
 	vi_print_hours_report(fp, vih);
 	vi_print_hline(fp);
+	
+	vi_print_hits_report(fp, vih);
+	vi_print_hline(fp);
+
+	if (Config_process_weekdayhour_map) {
+		vi_print_weekdayhour_map_report(fp, vih);
+		vi_print_hline(fp);
+	}
+	if (Config_process_monthday_map) {
+		vi_print_monthday_map_report(fp, vih);
+		vi_print_hline(fp);
+	}
+
 	vi_print_credits(fp);
 	vi_print_hline(fp);
 	vi_print_footer(fp);
@@ -3030,8 +2711,7 @@ void visited_show_help(void) {
 		       (visited_optlist[i].ao_flags & AGO_NEEDARG) ?
 		       "<argument>" : "");
 	}
-	printf("\nNOTE: --filter-spam can be *very* slow. Use with care.\n\n");
-	printf("Visited is Copyright(C) 2011-2016 Camilo E. Hidalgo Estevez <camiloehe@gmail.com>\n"
+	printf("Visited is Copyright(C) 2011 Camilo E. Hidalgo Estevez <camiloehe@gmail.com>\n"
 	       "Visited is based on Visitors, for more info visit http://www.hping.org/visitors\n"
 	       "Visitors is Copyright(C) 2004-2006 Salvatore Sanfilippo <antirez@invece.org>\n");
 }
@@ -3048,7 +2728,7 @@ int main(int argc, char **argv) {
 		case AGO_UNKNOWN:
 		case AGO_REQARG:
 		case AGO_AMBIG:
-			ago_gnu_error("visitors", o);
+			ago_gnu_error("visited", o);
 			visited_show_help();
 			exit(1);
 			break;
@@ -3057,7 +2737,7 @@ int main(int argc, char **argv) {
 			exit(0);
 			break;
 		case OPT_VERSION:
-			printf("Visitors %s\n", VI_VERSION_STR);
+			printf("Visited %s\n", VI_VERSION_STR);
 			exit(0);
 		case OPT_MAXPAGES:
 			Config_max_pages = atoi(ago_optarg);
@@ -3092,13 +2772,15 @@ int main(int argc, char **argv) {
 		case OPT_CODES:
 			Config_process_codes = 1;
 			break;
+		case OPT_USERS:
+			Config_process_users = 1;
+			break;
 		case OPT_ALL:
 			Config_process_codes = 1;
 			Config_process_weekdayhour_map = 1;
 			Config_process_monthday_map = 1;
 			Config_process_sites = 1;
 			Config_process_error404 = 1;
-			Config_process_pageviews = 1;
 			Config_process_types = 1;
 			Config_process_users = 1;
 			Config_process_hosts = 1;

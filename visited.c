@@ -37,7 +37,7 @@
 /* Max length of a log entry date */
 #define VI_DATE_MAX 64
 /* Version as a string */
-#define VI_VERSION_STR "0.20"
+#define VI_VERSION_STR "0.21"
 
 /*------------------------------- data structures ----------------------------*/
 
@@ -1156,6 +1156,7 @@ int vi_process_requests(struct vih *vih, char *req, long size, char *date) {
 		/* Skip the day number. */
 		month = strchr(date, '/');
 		if (!month) return 0; /* should never happen */
+		month++;
 		res = vi_counter_incr(&vih->month, month);
 		if (res == 0) return 1;
 	}
@@ -2193,7 +2194,7 @@ void vi_print_generic_keyvalbar_report(FILE *fp, char *title, char *subtitle,
 void vi_print_pages_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyval_report(
 	    fp,
-	    "Requested pages",
+	    "Pages by hits",
 	    "Page requests ordered by hits",
 	    "Different pages requested",
 	    Config_max_pages,
@@ -2201,7 +2202,7 @@ void vi_print_pages_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyval_report(
 	    fp,
-	    "Requested pages",
+	    "Pages by size",
 	    "Page requests ordered by size",
 	    "Different pages requested",
 	    Config_max_pages,
@@ -2210,7 +2211,7 @@ void vi_print_pages_report(FILE *fp, struct vih *vih) {
 }
 
 void vi_print_error404_report(FILE *fp, struct vih *vih) {
-	vi_print_generic_keyval_report(
+	vi_print_generic_keyvalbar_report(
 	    fp,
 	    "404 Errors",
 	    "Requests for missing documents",
@@ -2221,19 +2222,19 @@ void vi_print_error404_report(FILE *fp, struct vih *vih) {
 }
 
 void vi_print_types_report(FILE *fp, struct vih *vih) {
-	vi_print_generic_keyval_report(
+	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Requested media types",
-	    "Requested media types ordered by hits",
-	    "Different media types requested",
+	    "File types by hits",
+	    "Requested file types ordered by hits",
+	    "Different file types requested",
 	    Config_max_types,
 	    &vih->types_hits,
 	    qsort_cmp_long_value);
-	vi_print_generic_keyval_report(
+	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Requested media types",
-	    "Requested media types ordered by size",
-	    "Different media types requested",
+	    "File types by size",
+	    "Requested file types ordered by size",
+	    "Different file types requested",
 	    Config_max_types,
 	    &vih->types_size,
 	    qsort_cmp_long_value);
@@ -2242,7 +2243,7 @@ void vi_print_types_report(FILE *fp, struct vih *vih) {
 void vi_print_codes_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "HTTP codes",
+	    "Codes by hits",
 	    "HTTP codes ordered by hits",
 	    "Different HTTP codes",
 	    Config_max_codes,
@@ -2250,7 +2251,7 @@ void vi_print_codes_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "HTTP codes",
+	    "Codes by size",
 	    "HTTP codes ordered by size",
 	    "Different HTTP codes",
 	    Config_max_codes,
@@ -2261,17 +2262,17 @@ void vi_print_codes_report(FILE *fp, struct vih *vih) {
 void vi_print_sites_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Sites",
-	    "Domains sorted by hits",
+	    "Sites by hits",
+	    "Sites sorted by hits",
 	    "Total number of sites",
 	    Config_max_sites,
 	    &vih->sites_hits,
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Sites",
+	    "Sites by size",
 	    "Sites sorted by size",
-	    "Total size of sites",
+	    "Total number of sites",
 	    Config_max_sites,
 	    &vih->sites_size,
 	    qsort_cmp_long_value);
@@ -2280,7 +2281,7 @@ void vi_print_sites_report(FILE *fp, struct vih *vih) {
 void vi_print_hosts_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Hosts",
+	    "Hosts by hits",
 	    "Hosts sorted by hits",
 	    "Total number of hosts",
 	    Config_max_hosts,
@@ -2288,9 +2289,9 @@ void vi_print_hosts_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Hosts",
+	    "Hosts by size",
 	    "Hosts sorted by size",
-	    "Total size of hosts",
+	    "Total number of hosts",
 	    Config_max_hosts,
 	    &vih->hosts_size,
 	    qsort_cmp_long_value);
@@ -2299,7 +2300,7 @@ void vi_print_hosts_report(FILE *fp, struct vih *vih) {
 void vi_print_users_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Users",
+	    "Users by hits",
 	    "Users sorted by hits",
 	    "Total number of users",
 	    Config_max_hosts,
@@ -2307,9 +2308,9 @@ void vi_print_users_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Users",
+	    "Users by size",
 	    "Users sorted by size",
-	    "Total size of users",
+	    "Total number of users",
 	    Config_max_hosts,
 	    &vih->users_size,
 	    qsort_cmp_long_value);
@@ -2318,17 +2319,17 @@ void vi_print_users_report(FILE *fp, struct vih *vih) {
 void vi_print_verbs_report(FILE *fp, struct vih *vih) {
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "HTTP Verbs",
-	    "Verbs sorted by hits",
-	    "Total number of verbs",
+	    "Methods by hits",
+	    "HTTP methods sorted by hits",
+	    "Total number of methods",
 	    100,
 	    &vih->verbs_hits,
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "HTTP Verbs",
-	    "Verbss sorted by size",
-	    "Total size of verbs",
+	    "Methods by size",
+	    "HTTP methods sorted by size",
+	    "Total number of methods",
 	    100,
 	    &vih->verbs_size,
 	    qsort_cmp_long_value);
@@ -2383,17 +2384,27 @@ void vi_print_information_report(FILE *fp, struct vih *vih) {
 
 void vi_print_report_links(FILE *fp) {
 	void *l[] = {
-		"Requested pages", NULL,
-		"Requested sites", &Config_process_sites,
-		"Weekday-Hour combined map", &Config_process_weekdayhour_map,
-		"Month-Day combined map", &Config_process_monthday_map,
-		"Media types", &Config_process_types,
-		"Users", &Config_process_users,
-		"HTTP codes", &Config_process_codes,
-		"HTTP verbs", &Config_process_verbs,
+		"Pages by hits", NULL,
+		"Pages by size", NULL,
+		"Sites by hits", &Config_process_sites,
+		"Sites by size", &Config_process_sites,
+		"File types by hits", &Config_process_types,
+		"File types by size", &Config_process_types,
+		"Users by hits", &Config_process_users,
+		"Users by size", &Config_process_users,
+		"Hosts by hits", &Config_process_hosts,
+		"Hosts by size", &Config_process_hosts,
+		"Codes by hits", &Config_process_codes,
+		"Codes by size", &Config_process_codes,
+		"Methods by hits", &Config_process_verbs,
+		"Methods by size", &Config_process_verbs,
 		"404 Errors", &Config_process_error404,
 		"Weekday distribution", NULL,
 		"Hours distribution", NULL,
+		"Daily hits", NULL,
+		"Monthly hits", NULL,
+		"Weekday-Hour combined map", &Config_process_weekdayhour_map,
+		"Month-Day combined map", &Config_process_monthday_map,
 	};
 	unsigned int i, num = 0;
 
@@ -2442,7 +2453,7 @@ void vi_print_weekdayhour_map_report(FILE *fp, struct vih *vih) {
 	Output->print_bidimentional_map(fp, 24, 7, xlabel, ylabel, hw);
 
 	/* do sizes now */
-	hw = (int*) vih->weekdayhour_hits;
+	hw = (int*) vih->weekdayhour_size;
 
 	/* Check indexes of minimum and maximum in the array. */
 	for (j = 0; j < 24*7; j++) {
@@ -2453,11 +2464,11 @@ void vi_print_weekdayhour_map_report(FILE *fp, struct vih *vih) {
 	}
 
 	Output->print_title(fp, "Weekday-Hour combined map");
-	Output->print_subtitle(fp, "Brighter means higher level of hits");
-	snprintf(buf, VI_LINE_MAX, "Hour with max traffic starting at %s %s:00 with hits",
+	Output->print_subtitle(fp, "Brighter means higher level of traffic");
+	snprintf(buf, VI_LINE_MAX, "Hour with max traffic starting at %s %s:00 with size",
 	         ylabel[maxj/24], xlabel[maxj%24]);
 	Output->print_numkey_info(fp, buf, hw[maxj]);
-	snprintf(buf, VI_LINE_MAX, "Hour with min traffic starting at %s %s:00 with hits",
+	snprintf(buf, VI_LINE_MAX, "Hour with min traffic starting at %s %s:00 with size",
 	         ylabel[minj/24], xlabel[minj%24]);
 	Output->print_numkey_info(fp, buf, hw[minj]);
 	Output->print_hline(fp);

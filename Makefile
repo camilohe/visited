@@ -1,5 +1,5 @@
 # Makefile for visited
-# Copyright (C) 2004 Salvatore Sanfilippo <antirez@invece.org>
+# Copyright (C) 2011 Camilo E. Hidalgo Estevez <camilohe@gmail.com>
 # All Rights Reserved
 # Under the BSD license (see COPYING)
 

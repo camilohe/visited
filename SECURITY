@@ -3,11 +3,11 @@ SECURITY FILE
 This file will contain a list of bugs related to security problems found
 in visitors. Currently no bug of this kind was reported or found.
 
-VISITORS CODE QUALITY AND AUDITING
+VISITED CODE QUALITY AND AUDITING
 
-Visitors is tested with big log files and the valgrind program before of every
-release to ensure that there aren't obvious memory violation problems
-with normal log files, and was written with care about security.
+Visited is tested with big log files to ensure that there aren't obvious 
+memory violation problems with normal log files, and is based on code written 
+with care about security.
 
 POSSIBLE PROBLEMS
 

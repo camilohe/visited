@@ -37,7 +37,7 @@
 /* Max length of a log entry date */
 #define VI_DATE_MAX 64
 /* Version as a string */
-#define VI_VERSION_STR "0.21"
+#define VI_VERSION_STR "0.22"
 
 /*------------------------------- data structures ----------------------------*/
 
@@ -2211,7 +2211,7 @@ void vi_print_pages_report(FILE *fp, struct vih *vih) {
 }
 
 void vi_print_error404_report(FILE *fp, struct vih *vih) {
-	vi_print_generic_keyvalbar_report(
+	vi_print_generic_keyval_report(
 	    fp,
 	    "404 Errors",
 	    "Requests for missing documents",

@@ -2239,7 +2239,7 @@ void vi_print_types_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "File types by hits",
 	    "Requested file types ordered by hits",
-	    "Different file types requested - hits",
+	    "Different file types requested",
 	    Config_max_types,
 	    &vih->types_hits,
 	    qsort_cmp_long_value);
@@ -2247,7 +2247,7 @@ void vi_print_types_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "File types by size in MB",
 	    "Requested file types ordered by size in MB",
-	    "Different file types requested - size in MB",
+	    "Different file types requested",
 	    Config_max_types,
 	    &vih->types_size,
 	    qsort_cmp_long_value);
@@ -2258,7 +2258,7 @@ void vi_print_codes_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Codes by hits",
 	    "HTTP codes ordered by hits",
-	    "Different HTTP codes - hits",
+	    "Different HTTP codes",
 	    Config_max_codes,
 	    &vih->codes_hits,
 	    qsort_cmp_long_value);
@@ -2266,7 +2266,7 @@ void vi_print_codes_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Codes by size in MB",
 	    "HTTP codes ordered by size in MB",
-	    "Different HTTP codes - size in MB",
+	    "Different HTTP codes",
 	    Config_max_codes,
 	    &vih->codes_size,
 	    qsort_cmp_long_value);
@@ -2277,7 +2277,7 @@ void vi_print_sites_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Sites by hits",
 	    "Sites sorted by hits",
-	    "Total number of sites - hits",
+	    "Total number of sites",
 	    Config_max_sites,
 	    &vih->sites_hits,
 	    qsort_cmp_long_value);
@@ -2285,7 +2285,7 @@ void vi_print_sites_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Sites by size in MB",
 	    "Sites sorted by size in MB",
-	    "Total number of sites - size in MB",
+	    "Total number of sites",
 	    Config_max_sites,
 	    &vih->sites_size,
 	    qsort_cmp_long_value);
@@ -2296,7 +2296,7 @@ void vi_print_hosts_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Hosts by hits",
 	    "Hosts sorted by hits",
-	    "Total number of hosts - hits",
+	    "Total number of hosts",
 	    Config_max_hosts,
 	    &vih->hosts_hits,
 	    qsort_cmp_long_value);
@@ -2304,7 +2304,7 @@ void vi_print_hosts_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Hosts by size in MB",
 	    "Hosts sorted by size in MB",
-	    "Total number of hosts - size in MB",
+	    "Total number of hosts",
 	    Config_max_hosts,
 	    &vih->hosts_size,
 	    qsort_cmp_long_value);
@@ -2315,7 +2315,7 @@ void vi_print_users_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Users by hits",
 	    "Users sorted by hits",
-	    "Total number of users - hits",
+	    "Total number of users",
 	    Config_max_hosts,
 	    &vih->users_hits,
 	    qsort_cmp_long_value);
@@ -2323,7 +2323,7 @@ void vi_print_users_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Users by size in MB",
 	    "Users sorted by size in MB",
-	    "Total number of users - size in MB",
+	    "Total number of users",
 	    Config_max_hosts,
 	    &vih->users_size,
 	    qsort_cmp_long_value);
@@ -2334,7 +2334,7 @@ void vi_print_verbs_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Methods by hits",
 	    "HTTP methods sorted by hits",
-	    "Total number of methods - hits",
+	    "Total number of methods",
 	    100,
 	    &vih->verbs_hits,
 	    qsort_cmp_long_value);
@@ -2342,7 +2342,7 @@ void vi_print_verbs_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Methods by size in MB",
 	    "HTTP methods sorted by size in MB",
-	    "Total number of methods - size in MB",
+	    "Total number of methods",
 	    100,
 	    &vih->verbs_size,
 	    qsort_cmp_long_value);

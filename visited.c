@@ -37,7 +37,7 @@
 /* Max length of a log entry date */
 #define VI_DATE_MAX 64
 /* Version as a string */
-#define VI_VERSION_STR "0.23"
+#define VI_VERSION_STR "0.24"
 
 /*------------------------------- data structures ----------------------------*/
 
@@ -1020,12 +1020,14 @@ int vi_parse_line(struct logline *ll, char *l) {
 	        (req = strstr(l, "\"HEAD")) != NULL ||
 	        (req = strstr(l, "\"CONNECT")) != NULL ||
 	        (req = strstr(l, "\"PUT")) != NULL ||
+	        (req = strstr(l, "\"PROPFIND")) != NULL ||
 	        (req = strstr(l, "\"OPTIONS")) != NULL ||
 	        (req = strstr(l, "\"get")) != NULL ||
 	        (req = strstr(l, "\"post")) != NULL ||
 	        (req = strstr(l, "\"head")) != NULL ||
 	        (req = strstr(l, "\"connect")) != NULL ||
 	        (req = strstr(l, "\"put")) != NULL ||
+	        (req = strstr(l, "\"propfind")) != NULL ||
 	        (req = strstr(l, "\"options")) != NULL) {
 		req++;
 	} else {
@@ -1183,11 +1185,18 @@ int vi_process_types(struct vih *vih, char *url, long size) {
 	if (!*p) return 0;
 	// get the last "." position 
 	dot = strrchr(p, '.');
+	// if no dot found, assume no file type given and exit  
 	if (!dot) return 0;
 
-    // some sanity checks: file type can not have "?" nor "/"
-	if (strchr(dot, '?')) return 0;
-	if (strchr(dot, '/')) return 0;
+    // find file type end by searching the first non digit/alpha char after dot 
+	p = dot+1;
+	while (*p && isalnum(*p)) {
+		if (isalpha(*p))
+			*p = tolower(*p); // lowercase it if it is alpha to merge duplicates
+		p++;
+	}
+	if (*p) // we found a non digit/alpha so set to null to end file type string
+		*p = '\0';
 	
     res = vi_counter_incr(&vih->types_hits, dot);
 	if (res == 0) return 1;
@@ -2458,6 +2467,7 @@ void vi_print_weekdayhour_map_report(FILE *fp, struct vih *vih) {
 
 	/* do sizes now */
 	hw = (int*) vih->weekdayhour_size;
+	minj = 0, maxj = 0;
 
 	/* Check indexes of minimum and maximum in the array. */
 	for (j = 0; j < 24*7; j++) {
@@ -2515,7 +2525,8 @@ void vi_print_monthday_map_report(FILE *fp, struct vih *vih) {
 
 	/* do sizes now */
 	md = (int*) vih->monthday_size;
-
+	minj = 0, maxj = 0;
+	
 	/* Check indexes of minimum and maximum in the array. */
 	for (j = 0; j < 12*31; j++) {
 		if (md[j] > md[maxj])

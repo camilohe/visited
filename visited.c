@@ -37,7 +37,7 @@
 /* Max length of a log entry date */
 #define VI_DATE_MAX 64
 /* Version as a string */
-#define VI_VERSION_STR "0.22"
+#define VI_VERSION_STR "0.23"
 
 /*------------------------------- data structures ----------------------------*/
 
@@ -1017,14 +1017,16 @@ int vi_parse_line(struct logline *ll, char *l) {
 	/* req */
 	if ((req = strstr(l, "\"GET")) != NULL ||
 	        (req = strstr(l, "\"POST")) != NULL ||
-	        (req = strstr(l, "\"CONNECT")) != NULL ||
-	        (req = strstr(l, "\"OPTIONS")) != NULL ||
 	        (req = strstr(l, "\"HEAD")) != NULL ||
+	        (req = strstr(l, "\"CONNECT")) != NULL ||
+	        (req = strstr(l, "\"PUT")) != NULL ||
+	        (req = strstr(l, "\"OPTIONS")) != NULL ||
 	        (req = strstr(l, "\"get")) != NULL ||
 	        (req = strstr(l, "\"post")) != NULL ||
+	        (req = strstr(l, "\"head")) != NULL ||
 	        (req = strstr(l, "\"connect")) != NULL ||
-	        (req = strstr(l, "\"options")) != NULL ||
-	        (req = strstr(l, "\"head")) != NULL) {
+	        (req = strstr(l, "\"put")) != NULL ||
+	        (req = strstr(l, "\"options")) != NULL) {
 		req++;
 	} else {
 		req = "";
@@ -1080,9 +1082,11 @@ int vi_parse_line(struct logline *ll, char *l) {
 	ll->timezone = timezone;
 	ll->req = req;
 	ll->verb = verb;
-	// convert size to KB for storage
-	ll->size = atol(size) >> 10;
-	// exit if we an http code with more than 3 digits
+/*	// convert size to KB for storage by shifting right 10 bits to avoid overflow
+	ll->size = atol(size) >> 10;*/
+	// convert size to MB for storage by shifting right 20 bits to avoid overflow
+	ll->size = atol(size) >> 20;
+	// exit if we got an http code with more than 3 digits
 	if (strlen(code) > 3) return 1;
 	ll->code = code;
 	return 0;
@@ -2202,8 +2206,8 @@ void vi_print_pages_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyval_report(
 	    fp,
-	    "Pages by size",
-	    "Page requests ordered by size",
+	    "Pages by size in MB",
+	    "Page requests ordered by size in MB",
 	    "Different pages requested",
 	    Config_max_pages,
 	    &vih->pages_size,
@@ -2226,15 +2230,15 @@ void vi_print_types_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "File types by hits",
 	    "Requested file types ordered by hits",
-	    "Different file types requested",
+	    "Different file types requested - hits",
 	    Config_max_types,
 	    &vih->types_hits,
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "File types by size",
-	    "Requested file types ordered by size",
-	    "Different file types requested",
+	    "File types by size in MB",
+	    "Requested file types ordered by size in MB",
+	    "Different file types requested - size in MB",
 	    Config_max_types,
 	    &vih->types_size,
 	    qsort_cmp_long_value);
@@ -2245,15 +2249,15 @@ void vi_print_codes_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Codes by hits",
 	    "HTTP codes ordered by hits",
-	    "Different HTTP codes",
+	    "Different HTTP codes - hits",
 	    Config_max_codes,
 	    &vih->codes_hits,
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Codes by size",
-	    "HTTP codes ordered by size",
-	    "Different HTTP codes",
+	    "Codes by size in MB",
+	    "HTTP codes ordered by size in MB",
+	    "Different HTTP codes - size in MB",
 	    Config_max_codes,
 	    &vih->codes_size,
 	    qsort_cmp_long_value);
@@ -2264,15 +2268,15 @@ void vi_print_sites_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Sites by hits",
 	    "Sites sorted by hits",
-	    "Total number of sites",
+	    "Total number of sites - hits",
 	    Config_max_sites,
 	    &vih->sites_hits,
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Sites by size",
-	    "Sites sorted by size",
-	    "Total number of sites",
+	    "Sites by size in MB",
+	    "Sites sorted by size in MB",
+	    "Total number of sites - size in MB",
 	    Config_max_sites,
 	    &vih->sites_size,
 	    qsort_cmp_long_value);
@@ -2283,15 +2287,15 @@ void vi_print_hosts_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Hosts by hits",
 	    "Hosts sorted by hits",
-	    "Total number of hosts",
+	    "Total number of hosts - hits",
 	    Config_max_hosts,
 	    &vih->hosts_hits,
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Hosts by size",
-	    "Hosts sorted by size",
-	    "Total number of hosts",
+	    "Hosts by size in MB",
+	    "Hosts sorted by size in MB",
+	    "Total number of hosts - size in MB",
 	    Config_max_hosts,
 	    &vih->hosts_size,
 	    qsort_cmp_long_value);
@@ -2302,15 +2306,15 @@ void vi_print_users_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Users by hits",
 	    "Users sorted by hits",
-	    "Total number of users",
+	    "Total number of users - hits",
 	    Config_max_hosts,
 	    &vih->users_hits,
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Users by size",
-	    "Users sorted by size",
-	    "Total number of users",
+	    "Users by size in MB",
+	    "Users sorted by size in MB",
+	    "Total number of users - size in MB",
 	    Config_max_hosts,
 	    &vih->users_size,
 	    qsort_cmp_long_value);
@@ -2321,15 +2325,15 @@ void vi_print_verbs_report(FILE *fp, struct vih *vih) {
 	    fp,
 	    "Methods by hits",
 	    "HTTP methods sorted by hits",
-	    "Total number of methods",
+	    "Total number of methods - hits",
 	    100,
 	    &vih->verbs_hits,
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Methods by size",
-	    "HTTP methods sorted by size",
-	    "Total number of methods",
+	    "Methods by size in MB",
+	    "HTTP methods sorted by size in MB",
+	    "Total number of methods - size in MB",
 	    100,
 	    &vih->verbs_size,
 	    qsort_cmp_long_value);

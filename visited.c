@@ -37,7 +37,7 @@
 /* Max length of a log entry date */
 #define VI_DATE_MAX 64
 /* Version as a string */
-#define VI_VERSION_STR "0.24"
+#define VI_VERSION_STR "0.25"
 
 /*------------------------------- data structures ----------------------------*/
 
@@ -75,10 +75,12 @@ struct vih {
 	struct hashtable types_hits;
 	struct hashtable types_size;
 
+	struct hashtable month_hits;
+	struct hashtable month_size;
+
 	struct hashtable error404;
 
 	struct hashtable date;
-	struct hashtable month;
 	char *error;
 };
 
@@ -723,9 +725,10 @@ void vi_reset_hashtables(struct vih *vih) {
 	ht_destroy(&vih->verbs_size);
 	ht_destroy(&vih->types_hits);
 	ht_destroy(&vih->types_size);
+	ht_destroy(&vih->month_hits);
+	ht_destroy(&vih->month_size);
 	ht_destroy(&vih->error404);
 	ht_destroy(&vih->date);
-	ht_destroy(&vih->month);
 }
 
 /* Reset handler informations to support --reset option in
@@ -765,9 +768,10 @@ struct vih *vi_new(void) {
 	vi_ht_init(&vih->verbs_size);
 	vi_ht_init(&vih->types_hits);
 	vi_ht_init(&vih->types_size);
+	vi_ht_init(&vih->month_hits);
+	vi_ht_init(&vih->month_size);
 	vi_ht_init(&vih->error404);
 	vi_ht_init(&vih->date);
-	vi_ht_init(&vih->month);
 	return vih;
 }
 
@@ -1084,10 +1088,10 @@ int vi_parse_line(struct logline *ll, char *l) {
 	ll->timezone = timezone;
 	ll->req = req;
 	ll->verb = verb;
-/*	// convert size to KB for storage by shifting right 10 bits to avoid overflow
-	ll->size = atol(size) >> 10;*/
-	// convert size to MB for storage by shifting right 20 bits to avoid overflow
-	ll->size = atol(size) >> 20;
+	// convert size to KB for storage by shifting right 10 bits to avoid overflow
+	ll->size = atol(size) >> 10;
+/*	// convert size to MB for storage by shifting right 20 bits to avoid overflow
+	ll->size = atol(size) >> 20;*/
 	// exit if we got an http code with more than 3 digits
 	if (strlen(code) > 3) return 1;
 	ll->code = code;
@@ -1163,7 +1167,9 @@ int vi_process_requests(struct vih *vih, char *req, long size, char *date) {
 		month = strchr(date, '/');
 		if (!month) return 0; /* should never happen */
 		month++;
-		res = vi_counter_incr(&vih->month, month);
+		res = vi_counter_incr(&vih->month_hits, month);
+		if (res == 0) return 1;
+		res = vi_traffic_incr(&vih->month_size, month, size);
 		if (res == 0) return 1;
 	}
 	return 0;
@@ -1174,10 +1180,13 @@ int vi_process_requests(struct vih *vih, char *req, long size, char *date) {
 int vi_process_types(struct vih *vih, char *url, long size) {
 	int res, c;
 	char *dot, *p;
+	char urldecoded[VI_LINE_MAX];
+
+	vi_urldecode(urldecoded, url, VI_LINE_MAX);
 
     // skip the first 3 "/" slashes in proto://host.name/
 	c = 0;
-	p = url;
+	p = urldecoded;
 	while (*p && c<3) {
 		if (*p == '/') c++;
 		p++;
@@ -2096,7 +2105,7 @@ void vi_print_hits_report(FILE *fp, struct vih *vih) {
 	                          ht_used(&vih->date));
 
 	if ((table = ht_get_array(&vih->date)) == NULL) {
-		fprintf(stderr, "Out Of Memory in print_visits_report()\n");
+		fprintf(stderr, "Out Of Memory in print_hits_report()\n");
 		return;
 	}
 	qsort(table, days, sizeof(void*)*2, qsort_cmp_dates_key);
@@ -2114,19 +2123,48 @@ void vi_print_hits_report(FILE *fp, struct vih *vih) {
 	free(table);
 	Output->print_hline(fp);
 
-	/* Monthly */
+	/* Monthly  hits*/
 	if (Config_process_monthly_hits == 0) return;
 	tot = max = 0;
-	months = ht_used(&vih->month);
+	months = ht_used(&vih->month_hits);
 	Output->print_title(fp, "Monthly hits");
-	Output->print_subtitle(fp, "Hits in each month");
+	Output->print_subtitle(fp, "Hits in each month in KB");
 	Output->print_numkey_info(fp, "Number of users",
 	                          ht_used(&vih->users_hits));
 	Output->print_numkey_info(fp, "Different months in logfile",
-	                          ht_used(&vih->month));
+	                          ht_used(&vih->month_hits));
 
-	if ((table = ht_get_array(&vih->month)) == NULL) {
-		fprintf(stderr, "Out of memory in print_visits_report()\n");
+	if ((table = ht_get_array(&vih->month_hits)) == NULL) {
+		fprintf(stderr, "Out of memory in print_hits_report()\n");
+		return;
+	}
+	qsort(table, months, sizeof(void*)*2, qsort_cmp_months_key);
+	for (i = 0; i < months; i++) {
+		long value = (long) table[(i*2)+1];
+		if (value > max)
+			max = value;
+		tot += value;
+	}
+	for (i = 0; i < months; i++) {
+		char *key = table[i*2];
+		long value = (long) table[(i*2)+1];
+		Output->print_numkeybar_entry(fp, key, max, tot, value);
+	}
+	free(table);
+
+	/* Monthly size */
+	if (Config_process_monthly_hits == 0) return;
+	tot = max = 0;
+	months = ht_used(&vih->month_size);
+	Output->print_title(fp, "Monthly size");
+	Output->print_subtitle(fp, "Size in each month in KB");
+	Output->print_numkey_info(fp, "Number of users",
+	                          ht_used(&vih->users_size));
+	Output->print_numkey_info(fp, "Different months in logfile",
+	                          ht_used(&vih->month_size));
+
+	if ((table = ht_get_array(&vih->month_size)) == NULL) {
+		fprintf(stderr, "Out of memory in print_hits_report()\n");
 		return;
 	}
 	qsort(table, months, sizeof(void*)*2, qsort_cmp_months_key);
@@ -2215,8 +2253,8 @@ void vi_print_pages_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyval_report(
 	    fp,
-	    "Pages by size in MB",
-	    "Page requests ordered by size in MB",
+	    "Pages by size",
+	    "Page requests ordered by size in KB",
 	    "Different pages requested",
 	    Config_max_pages,
 	    &vih->pages_size,
@@ -2245,8 +2283,8 @@ void vi_print_types_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "File types by size in MB",
-	    "Requested file types ordered by size in MB",
+	    "File types by size",
+	    "Requested file types ordered by size in KB",
 	    "Different file types requested",
 	    Config_max_types,
 	    &vih->types_size,
@@ -2264,8 +2302,8 @@ void vi_print_codes_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Codes by size in MB",
-	    "HTTP codes ordered by size in MB",
+	    "Codes by size",
+	    "HTTP codes ordered by size in KB",
 	    "Different HTTP codes",
 	    Config_max_codes,
 	    &vih->codes_size,
@@ -2283,8 +2321,8 @@ void vi_print_sites_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Sites by size in MB",
-	    "Sites sorted by size in MB",
+	    "Sites by size",
+	    "Sites sorted by size in KB",
 	    "Total number of sites",
 	    Config_max_sites,
 	    &vih->sites_size,
@@ -2302,8 +2340,8 @@ void vi_print_hosts_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Hosts by size in MB",
-	    "Hosts sorted by size in MB",
+	    "Hosts by size",
+	    "Hosts sorted by size in KB",
 	    "Total number of hosts",
 	    Config_max_hosts,
 	    &vih->hosts_size,
@@ -2321,8 +2359,8 @@ void vi_print_users_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Users by size in MB",
-	    "Users sorted by size in MB",
+	    "Users by size",
+	    "Users sorted by size in KB",
 	    "Total number of users",
 	    Config_max_hosts,
 	    &vih->users_size,
@@ -2340,8 +2378,8 @@ void vi_print_verbs_report(FILE *fp, struct vih *vih) {
 	    qsort_cmp_long_value);
 	vi_print_generic_keyvalbar_report(
 	    fp,
-	    "Methods by size in MB",
-	    "HTTP methods sorted by size in MB",
+	    "Methods by size",
+	    "HTTP methods sorted by size in KB",
 	    "Total number of methods",
 	    100,
 	    &vih->verbs_size,

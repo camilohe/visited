@@ -2,7 +2,7 @@
  * Copyright (C) 2005 Salvatore Sanfilippo
  *
  * NOTE:
- * 
+ *
  * This fail was obtained as a modification of the
  * MT-Blacklist Master Copy, see
  * http://www.jayallen.org/comment_spam/blacklist.txt

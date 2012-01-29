@@ -66,7 +66,7 @@ void vi_tail(int filec, char **filev)
 {
 	long *len;
 	int i;
-	
+
 	if (filec <= 0) {
 		fprintf(stderr, "No files specified in tail-mode\n");
 		exit(1);

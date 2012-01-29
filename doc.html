@@ -21,16 +21,16 @@ TORS" title="Visitors web log analyzer"></tr><tr><td align="center"></td></tr>
 <A HREF="#toc">Table of Contents</A><P>
 
 <H2><A NAME="sect0" HREF="#toc0">Name</A></H2>
-visitors - a fast web server log analyzer 
+visitors - a fast web server log analyzer
 <H2><A NAME="sect1" HREF="#toc1">Synopsis</A></H2>
 <B>visitors</B> [<I>options]
-<I>&lt;filename&gt; [<I>&lt;filename&gt; ...] 
+<I>&lt;filename&gt; [<I>&lt;filename&gt; ...]
 <H2><A NAME="sect2" HREF="#toc2"></I></I></I>Description</A></H2>
 <P>
 <I>Visitors</I> generates access statistics from
 specified web log files. <P>
  The resulting reports contain a number of useful
-informations and statistics: 
+informations and statistics:
 <DL>
 
 
@@ -650,7 +650,7 @@ using the standard input like in the following two examples: <P>
  % visitors
 /var/log/apache/access.log.* <BR>
 % zcat access.log.*.gz | visitors - <P>
- 
+
 <H2><A NAME="sect5" HREF="#toc5">Stream Mode Details</A></H2>
 <P>
 The usual way to run
@@ -688,7 +688,7 @@ statistics updated every 30 seconds about the last hour of traffic: <P>
 visitors --tail /var/log/apache/access.log |  visitors --stream -A --update-every
 30 --reset-every 3600 \<BR>
    --output-file /tmp/report.html<BR>
- 
+
 <H2><A NAME="sect6" HREF="#toc6">Authors</A></H2>
 <P>
 <I>Visitors</I> was written by Salvatore Sanfilippo &lt;antirez@invece.org&gt;.

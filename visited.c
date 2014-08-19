@@ -989,8 +989,8 @@ void vi_clear_error(struct vih *vih) {
  * host - user [date:time timezone] "verb url ver" code size +connections
  */
 int vi_parse_line(struct logline *ll, char *l) {
-	char *date, *hour, *timezone, *host, *req, *p, *user = NULL, *code, *size, *verb;
-	char *req_end = NULL, *user_end = NULL, *code_end = NULL, *size_end = NULL;
+	char *date, *hour, *timezone, *host, *req, *p, *user = NULL, *code, *size, *verb = NULL;
+	char *req_end = NULL, *user_end = NULL; //, *code_end = NULL, *size_end = NULL;
 
 	/* Seek the start of the different components */
 
@@ -2775,7 +2775,7 @@ void visited_show_help(void) {
 		       (visited_optlist[i].ao_flags & AGO_NEEDARG) ?
 		       "<argument>" : "");
 	}
-	printf("Visited is Copyright(C) 2011 Camilo E. Hidalgo Estevez <camiloehe@gmail.com>\n"
+	printf("Visited is Copyright(C) 2011 Camilo E. Hidalgo Estevez <camilohe@gmail.com>\n"
 	       "Visited is based on Visitors, for more info visit http://www.hping.org/visitors\n"
 	       "Visitors is Copyright(C) 2004-2006 Salvatore Sanfilippo <antirez@invece.org>\n");
 }

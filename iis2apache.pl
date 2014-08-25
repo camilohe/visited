@@ -17,7 +17,7 @@ while ($arg = shift @ARGV) {
 	$tzoffset = shift @ARGV if ($arg eq "--faketz");
 	$vhost = shift @ARGV if ($arg eq "--vhost");
 	$debug = 1 if ($arg eq "--debug");	# show field interpretation
-}	
+}
 
 if ($tzoffset eq "") {
 	print STDERR "Will use -0000 as a fake tzoffset\n";
@@ -31,7 +31,7 @@ while ($m = shift @m) {
 }
 
 # an IIS log adheres to what's defined by 'Fields;'
-# attempt to parse this, tagging 
+# attempt to parse this, tagging
 
 
 LINE:
@@ -40,7 +40,7 @@ while ($line = <STDIN>) {
 	if ($line =~ /^#Fields: /) {
 		@line = split(" ", $line);
 		shift @line; # shifts of #Fields
-		# build a hash so we can look up a fieldname and 
+		# build a hash so we can look up a fieldname and
 		# have it return a position in the string
 		undef %fieldh;
 		$n = 0;	# zero-based array for split
@@ -53,10 +53,10 @@ while ($line = <STDIN>) {
 	next LINE if ($line =~ /^#/);
 
 #Fields: date time c-ip cs-username s-sitename s-computername s-ip cs-method cs-
-#uri-stem cs-uri-query sc-status sc-win32-status sc-bytes cs-bytes time-taken 
+#uri-stem cs-uri-query sc-status sc-win32-status sc-bytes cs-bytes time-taken
 #s-port cs-version cs(User-Agent) cs(Cookie) cs(Referer)
 
-	# this is really slow.  
+	# this is really slow.
 
 	$date = yankfield("date");
 	$time = yankfield("time");
@@ -67,9 +67,9 @@ while ($line = <STDIN>) {
 	$query = yankfield("cs-uri-query");
 	$status = yankfield("sc-status");
 	#$bytes = yankfield("cs-bytes");
-	# Which is it? sc-bytes or cs-bytes?  
+	# Which is it? sc-bytes or cs-bytes?
 	# cs-bytes only appears in some of the IIS logs I've seen.
-	# I'll assume that sc-bytes is "server->client bytes", which 
+	# I'll assume that sc-bytes is "server->client bytes", which
 	# is what we want anyway.
 	$bytes = yankfield("sc-bytes");		# I'm gonna go with this.
 	$useragent = yankfield("cs(User-Agent)");
@@ -80,7 +80,7 @@ while ($line = <STDIN>) {
 	# our modified CLF sez:
 	# IP - - [DD/MMM/YYYY:HH:MM:SS TZOFFSET] "method stem[?query]" status bytes "referer" "user agent" "vhost"
 
-	# convert date 
+	# convert date
 	# 2000-07-19 00:00:01
 	($y, $m, $d) = split("-", $date);
 	$m =~ s/^0//g;
@@ -98,7 +98,7 @@ while ($line = <STDIN>) {
 
 
 # return the proper field, or "-" if it's not defined.
-# (unfortunately ($date) = (split(" ", $line))[$fieldh{date}]; 
+# (unfortunately ($date) = (split(" ", $line))[$fieldh{date}];
 # will return element 0 if $fieldh{date} is undefined . . .)
 
 sub yankfield {
@@ -112,5 +112,5 @@ sub yankfield {
 		print STDERR "$field undefined\n" if ($debug);
 		return "-";
 	}
-}	
+}
 

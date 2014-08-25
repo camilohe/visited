@@ -5,8 +5,8 @@ in visitors. Currently no bug of this kind was reported or found.
 
 VISITED CODE QUALITY AND AUDITING
 
-Visited is tested with big log files to ensure that there aren't obvious 
-memory violation problems with normal log files, and is based on code written 
+Visited is tested with big log files to ensure that there aren't obvious
+memory violation problems with normal log files, and is based on code written
 with care about security.
 
 POSSIBLE PROBLEMS

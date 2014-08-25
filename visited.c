@@ -1120,7 +1120,7 @@ void vi_process_month_and_day(struct vih *vih, int month, int day, long size) {
 }
 
 /* Process requests populating the pages and sites hash tables.
- * Populate also date and month hash tables if requested 
+ * Populate also date and month hash tables if requested
  * Return non-zero on out of memory. */
 int vi_process_requests(struct vih *vih, char *req, long size, char *date) {
 	char *p, *site = NULL, *month = "fixme if I'm here!";
@@ -1152,7 +1152,7 @@ int vi_process_requests(struct vih *vih, char *req, long size, char *date) {
 				if (res == 0) return 1;
 				res = vi_counter_incr(&vih->sites_hits, site);
 				if (res == 0) return 1;
-				// restore url to avoid interfering with functions called after this 
+				// restore url to avoid interfering with functions called after this
 				*p = '/';
 			}
 		}
@@ -1192,12 +1192,12 @@ int vi_process_types(struct vih *vih, char *url, long size) {
 		p++;
 	}
 	if (!*p) return 0;
-	// get the last "." position 
+	// get the last "." position
 	dot = strrchr(p, '.');
-	// if no dot found, assume no file type given and exit  
+	// if no dot found, assume no file type given and exit
 	if (!dot) return 0;
 
-    // find file type end by searching the first non digit/alpha char after dot 
+    // find file type end by searching the first non digit/alpha char after dot
 	p = dot+1;
 	while (*p && isalnum(*p)) {
 		if (isalpha(*p))
@@ -1206,7 +1206,7 @@ int vi_process_types(struct vih *vih, char *url, long size) {
 	}
 	if (*p) // we found a non digit/alpha so set to null to end file type string
 		*p = '\0';
-	
+
     res = vi_counter_incr(&vih->types_hits, dot);
 	if (res == 0) return 1;
 	res = vi_traffic_incr(&vih->types_size, dot, size);
@@ -1410,7 +1410,7 @@ int vi_process_line(struct vih *vih, char *l) {
 
 		/* The following are processed only for new visits */
 		if (seen) return 0;
-		
+
 		return 0;
 	} else {
 		vih->invalid++;
@@ -1797,7 +1797,7 @@ void om_html_print_keykey_entry(FILE *fp, char *key1, char *key2, int num) {
 	fprintf(fp, "<td align=\"left\" class=\"valueentry\">");
 	om_html_entities(fp, key1);
 	fprintf(fp, "</td><td align=\"left\" class=\"keyentry\">");
-	
+
 	if (strncmp(key2, "http://", 7) || !strncmp(key2, "https://", 8) || !strncmp(key2, "ftp://", 6)) {
 		fprintf(fp, "<a class=\"url\" href=\"%s\">", key2);
 		om_html_entities(fp, key2);
@@ -2564,7 +2564,7 @@ void vi_print_monthday_map_report(FILE *fp, struct vih *vih) {
 	/* do sizes now */
 	md = (int*) vih->monthday_size;
 	minj = 0, maxj = 0;
-	
+
 	/* Check indexes of minimum and maximum in the array. */
 	for (j = 0; j < 12*31; j++) {
 		if (md[j] > md[maxj])
@@ -2627,7 +2627,7 @@ int vi_print_report(char *of, struct vih *vih) {
 	vi_print_hline(fp);
 	vi_print_report_links(fp);
 	vi_print_hline(fp);
-	
+
 	vi_print_pages_report(fp, vih);
 	vi_print_hline(fp);
 	if (Config_process_sites) {
@@ -2658,12 +2658,12 @@ int vi_print_report(char *of, struct vih *vih) {
 		vi_print_error404_report(fp, vih);
 		vi_print_hline(fp);
 	}
-	
+
 	vi_print_weekdays_report(fp, vih);
 	vi_print_hline(fp);
 	vi_print_hours_report(fp, vih);
 	vi_print_hline(fp);
-	
+
 	vi_print_hits_report(fp, vih);
 	vi_print_hline(fp);
 

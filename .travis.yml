@@ -1,4 +1,7 @@
+language: c
 compiler:
-   - gcc
-   - clang
-   
+  - gcc
+  - clang
+# Change this to your needs
+# script: ./configure && make
+script: make

@@ -1,9 +1,10 @@
-WELCOME TO VISITED 0.21 -- [![Build Status](https://travis-ci.org/camilohe/visited.svg?branch=master)](https://travis-ci.org/camilohe/visited)
+WELCOME TO VISITED 0.21
 -----------------------
 
 Hello, this is Visited,
 a fast winroute proxy log analyzer.
 
+[![Build Status](https://travis-ci.org/camilohe/visited.svg?branch=master)](https://travis-ci.org/camilohe/visited)
 
 HOW TO COMPILE
 --------------
